@@ -24,7 +24,7 @@ TGBOTTOKEN = os.environ.get("TGBOTTOKEN")
 WEBHOOK_BASE_URL = os.environ.get("WEBHOOK_URL")  # e.g., "https://my-telegram-bot-cpji.onrender.com"
 
 # ------------------------
-# Flask Web Server Setup (For uptime, if needed)
+# Flask Web Server Setup (for uptime monitoring)
 # ------------------------
 app = Flask(__name__)
 
@@ -46,7 +46,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ------------------------
-# Global Wallet Addresses (Update with your actual addresses as needed)
+# Global Wallet Addresses
 # ------------------------
 WALLET_ADDRESSES = {
     "BTC": "bc1q9q75pdqn68kd9l3phk45lu9jdujuckewq6utp4",
@@ -64,10 +64,10 @@ WALLET_ADDRESSES = {
 # ------------------------
 # Admin ID
 # ------------------------
-ADMIN_ID = 7533239927  # Replace if needed
+ADMIN_ID = 7533239927
 
 # ------------------------
-# Database Setup (Using SQLite via SQLAlchemy)
+# Database Setup (SQLite via SQLAlchemy)
 # ------------------------
 from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime
 from sqlalchemy.orm import declarative_base, sessionmaker
@@ -99,9 +99,7 @@ def get_session():
 # ------------------------
 # Multi-Language Dictionary
 # ------------------------
-# Note:
-# 1. "deposit_success" echoes the deposit amount.
-# 2. "activated" is sent after the wallet address is provided.
+# "deposit_success" echoes the deposit amount and asks for wallet address.
 LANG = {
     "en": {
         "welcome": "Welcome to the AI Auto Trading Bot. Please choose an option:",
@@ -120,7 +118,7 @@ LANG = {
         "admin_not_auth": "You are not authorized to use this command.",
         "admin_report": "Admin Report:\nTotal Users: {total_users}\nTotal Deposits: ${total_deposit:.2f}\nTotal Profit: ${total_profit:.2f}",
     },
-    # (Other languages can be filled in similarly if needed)
+    # (Additional languages can be added here)
 }
 
 def get_msg(lang, key, **kwargs):
@@ -128,15 +126,15 @@ def get_msg(lang, key, **kwargs):
     return template.format(**kwargs) if kwargs else template
 
 # ------------------------
-# Trading Plans Configuration (Updated)
+# Trading Plans Configuration
 # ------------------------
 TRADING_PLANS = {
-    "plan_1": {"title": "🚨FIRST PLAN",  "equity_range": "$500 - $999",      "profit_percent": 25},
-    "plan_2": {"title": "🚨SECOND PLAN", "equity_range": "$1,000 - $4,999",    "profit_percent": 30},
-    "plan_3": {"title": "🚨THIRD PLAN",  "equity_range": "$5,000 - $9,999",    "profit_percent": 45},
-    "plan_4": {"title": "🚨FOURTH PLAN", "equity_range": "$10,000 - $49,999",  "profit_percent": 50},
-    "plan_5": {"title": "🚨 FIFTH PLAN", "equity_range": "$50,000 - $199,999",  "profit_percent": 55},
-    "plan_6": {"title": "🚨 SIXTH PLAN",  "equity_range": "$200,000 and above","profit_percent": 60},
+    "plan_1": {"title": "🚨FIRST PLAN",  "equity_range": "$500 - $999",       "profit_percent": 25},
+    "plan_2": {"title": "🚨SECOND PLAN", "equity_range": "$1,000 - $4,999",     "profit_percent": 30},
+    "plan_3": {"title": "🚨THIRD PLAN",  "equity_range": "$5,000 - $9,999",     "profit_percent": 45},
+    "plan_4": {"title": "🚨FOURTH PLAN", "equity_range": "$10,000 - $49,999",   "profit_percent": 50},
+    "plan_5": {"title": "🚨 FIFTH PLAN", "equity_range": "$50,000 - $199,999",   "profit_percent": 55},
+    "plan_6": {"title": "🚨 SIXTH PLAN",  "equity_range": "$200,000 and above",  "profit_percent": 60},
 }
 
 # ------------------------
@@ -351,7 +349,7 @@ async def autotrading_menu(update: Update, context: CallbackContext) -> None:
 
 async def plan_selection(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
-    selected_plan = query.data  # "plan_1" ... "plan_6"
+    selected_plan = query.data
     context.user_data["selected_plan"] = selected_plan
     plan_details = TRADING_PLANS.get(selected_plan)
     text = (f"You selected {plan_details['title']}:\n"
@@ -708,7 +706,7 @@ def main() -> None:
     application.add_handler(CallbackQueryHandler(callback_dispatcher))
     application.add_error_handler(error_handler)
 
-    # Schedule Daily Profit Updates (Midnight UTC)
+    # Schedule Daily Profit Updates (at midnight UTC)
     job_time = datetime.time(hour=0, minute=0, second=0)
     application.job_queue.run_daily(update_daily_profits, time=job_time)
 
@@ -721,6 +719,6 @@ def main() -> None:
     )
 
 if __name__ == '__main__':
-    # Start Flask server for uptime monitoring (if needed)
+    # Start the Flask web server for uptime
     threading.Thread(target=run_flask).start()
     main()
