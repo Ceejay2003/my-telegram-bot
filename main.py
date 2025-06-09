@@ -18,7 +18,13 @@ from telegram.ext import (
 )
 
 # ------------------------
-# Flask Web Server Setup (For Replit Uptime)
+# Read Bot Token and Webhook Base URL from Environment Variables
+# ------------------------
+TGBOTTOKEN = os.environ.get("TGBOTTOKEN")
+WEBHOOK_BASE_URL = os.environ.get("WEBHOOK_URL")  # e.g., "https://my-telegram-bot-cpji.onrender.com"
+
+# ------------------------
+# Flask Web Server Setup (For uptime, if needed)
 # ------------------------
 app = Flask(__name__)
 
@@ -40,7 +46,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ------------------------
-# Global Wallet Addresses (Update these with your actual addresses)
+# Global Wallet Addresses (Update with your actual addresses as needed)
 # ------------------------
 WALLET_ADDRESSES = {
     "BTC": "bc1q9q75pdqn68kd9l3phk45lu9jdujuckewq6utp4",
@@ -58,10 +64,10 @@ WALLET_ADDRESSES = {
 # ------------------------
 # Admin ID
 # ------------------------
-ADMIN_ID = 7533239927  # Replace with your Telegram user ID
+ADMIN_ID = 7533239927  # Replace if needed
 
 # ------------------------
-# Database Setup (Persistent Storage using SQLite via SQLAlchemy)
+# Database Setup (Using SQLite via SQLAlchemy)
 # ------------------------
 from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime
 from sqlalchemy.orm import declarative_base, sessionmaker
@@ -79,11 +85,9 @@ class UserAccount(Base):
     deposit = Column(Float, default=0)
     profit = Column(Float, default=0)
     wallet_address = Column(String, nullable=True)
-    language = Column(String, default="en")  # Language preference
-    compound = Column(Boolean, default=False)  # Option to compound profit
-    last_updated = Column(DateTime,
-                          default=datetime.datetime.utcnow,
-                          onupdate=datetime.datetime.utcnow)
+    language = Column(String, default="en")
+    compound = Column(Boolean, default=False)
+    last_updated = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
 engine = create_engine("sqlite:///crypto_bot.db", echo=False)
 Base.metadata.create_all(engine)
@@ -95,8 +99,9 @@ def get_session():
 # ------------------------
 # Multi-Language Dictionary
 # ------------------------
-# Note: The "deposit_success" template now echoes the deposit amount and asks for the wallet address.
-# The "activated" template is sent later after the user submits the wallet address.
+# Note:
+# 1. "deposit_success" echoes the deposit amount.
+# 2. "activated" is sent after the wallet address is provided.
 LANG = {
     "en": {
         "welcome": "Welcome to the AI Auto Trading Bot. Please choose an option:",
@@ -115,142 +120,7 @@ LANG = {
         "admin_not_auth": "You are not authorized to use this command.",
         "admin_report": "Admin Report:\nTotal Users: {total_users}\nTotal Deposits: ${total_deposit:.2f}\nTotal Profit: ${total_profit:.2f}",
     },
-    "es": {
-        "welcome": "Bienvenido al bot de trading automático con IA. Elige una opción:",
-        "autotrading": "Sistema de Autotrading",
-        "balance": "Balance",
-        "contact_support": "Contactar Soporte",
-        "main_menu": "Menú Principal:",
-        "deposit_success": "Depósito de ${amount:.2f} confirmado con éxito. Por favor, proporciona tu dirección de wallet para recibir ganancias:",
-        "activated": "SISTEMA DE AUTOTRADING ACTIVADO.",
-        "invalid_txid": "Formato de TXID inválido. Inténtalo de nuevo:",
-        "txid_received": "TXID recibido: {txid}\nHemos verificado un depósito de ${amount:.2f} basado en tu plan seleccionado.\nPor favor, confirma el depósito.",
-        "language_set": "Tu idioma se ha configurado a Español.",
-        "choose_language": "Elige tu idioma:",
-        "compound_on": "Compounding activado.",
-        "compound_off": "Compounding desactivado.",
-        "admin_not_auth": "No estás autorizado para usar este comando.",
-        "admin_report": "Reporte de Admin:\nTotal Usuarios: {total_users}\nDepósitos Totales: ${total_deposit:.2f}\nGanancias Totales: ${total_profit:.2f}",
-    },
-    "ru": {
-        "welcome": "Добро пожаловать в бот автоматической торговли с ИИ. Пожалуйста, выберите опцию:",
-        "autotrading": "Система автоматической торговли",
-        "balance": "Баланс",
-        "contact_support": "Связаться со службой поддержки",
-        "main_menu": "Главное меню:",
-        "deposit_success": "Депозит в размере ${amount:.2f} успешно подтвержден! Пожалуйста, укажите адрес вашего кошелька для получения прибыли:",
-        "activated": "Система автоматической торговли с ИИ активирована.",
-        "invalid_txid": "Неверный формат ID транзакции. Попробуйте снова:",
-        "txid_received": "ID транзакции получен: {txid}\nМы подтвердили депозит в размере ${amount:.2f} на основе выбранного плана.\nПожалуйста, подтвердите депозит.",
-        "language_set": "Ваш язык установлен на русский.",
-        "choose_language": "Выберите ваш язык:",
-        "compound_on": "Комплексное начисление прибыли активировано.",
-        "compound_off": "Комплексное начисление прибыли деактивировано.",
-        "admin_not_auth": "У вас нет прав для использования этой команды.",
-        "admin_report": "Отчет администратора:\nВсего пользователей: {total_users}\nОбщий депозит: ${total_deposit:.2f}\nОбщая прибыль: ${total_profit:.2f}",
-    },
-    "ar": {
-        "welcome": "مرحبًا بك في بوت التداول التلقائي بالذكاء الاصطناعي. الرجاء اختيار خيار:",
-        "autotrading": "نظام التداول التلقائي",
-        "balance": "الرصيد",
-        "contact_support": "اتصل بالدعم",
-        "main_menu": "القائمة الرئيسية:",
-        "deposit_success": "تم تأكيد إيداع بقيمة ${amount:.2f} بنجاح! يرجى تزويدنا بعنوان محفظتك لاستلام أرباحك:",
-        "activated": "تم تفعيل نظام التداول التلقائي بالذكاء الاصطناعي.",
-        "invalid_txid": "تنسيق معرف المعاملة غير صالح. الرجاء المحاولة مرة أخرى:",
-        "txid_received": "تم استلام معرف المعاملة: {txid}\nلقد تحققنا من إيداع بقيمة ${amount:.2f} وفقًا للخطة المختارة.\nيرجى تأكيد الإيداع.",
-        "language_set": "تم تعيين لغتك إلى العربية.",
-        "choose_language": "اختر لغتك:",
-        "compound_on": "تم تفعيل الربح المركب.",
-        "compound_off": "تم إيقاف الربح المركب.",
-        "admin_not_auth": "أنت غير مخول لاستخدام هذا الأمر.",
-        "admin_report": "تقرير المسؤول:\nإجمالي المستخدمين: {total_users}\nإجمالي الإيداعات: ${total_deposit:.2f}\nإجمالي الأرباح: ${total_profit:.2f}",
-    },
-    "id": {
-        "welcome": "Selamat datang di Bot Trading Otomatis AI. Silakan pilih opsi:",
-        "autotrading": "Sistem Autotrading",
-        "balance": "Saldo",
-        "contact_support": "Hubungi Dukungan",
-        "main_menu": "Menu Utama:",
-        "deposit_success": "Deposit sebesar ${amount:.2f} telah dikonfirmasi dengan sukses! Silakan masukkan alamat dompet Anda untuk menerima keuntungan:",
-        "activated": "Sistem Autotrading AI diaktifkan.",
-        "invalid_txid": "Format ID transaksi tidak valid. Silakan coba lagi:",
-        "txid_received": "ID transaksi diterima: {txid}\nKami telah memverifikasi deposit sebesar ${amount:.2f} berdasarkan rencana yang dipilih.\nSilakan konfirmasi deposit tersebut.",
-        "language_set": "Bahasa Anda telah diatur ke Bahasa Indonesia.",
-        "choose_language": "Pilih bahasa Anda:",
-        "compound_on": "Keuntungan gabungan diaktifkan.",
-        "compound_off": "Keuntungan gabungan dinonaktifkan.",
-        "admin_not_auth": "Anda tidak diizinkan menggunakan perintah ini.",
-        "admin_report": "Laporan Admin:\nTotal Pengguna: {total_users}\nTotal Deposit: ${total_deposit:.2f}\nTotal Keuntungan: ${total_profit:.2f}",
-    },
-    "de": {
-        "welcome": "Willkommen beim KI-Auto-Trading-Bot. Bitte wählen Sie eine Option:",
-        "autotrading": "Auto-Trading-System",
-        "balance": "Kontostand",
-        "contact_support": "Kontaktieren Sie den Support",
-        "main_menu": "Hauptmenü:",
-        "deposit_success": "Einzahlung von ${amount:.2f} wurde erfolgreich bestätigt! Bitte geben Sie Ihre Wallet-Adresse ein, um Ihre Gewinne zu erhalten:",
-        "activated": "KI-Auto-Trading-System aktiviert.",
-        "invalid_txid": "Ungültiges Transaktions-ID-Format. Bitte versuchen Sie es erneut:",
-        "txid_received": "Transaktions-ID empfangen: {txid}\nWir haben eine Einzahlung von ${amount:.2f} basierend auf Ihrem gewählten Plan bestätigt.\nBitte bestätigen Sie die Einzahlung.",
-        "language_set": "Ihre Sprache wurde auf Deutsch eingestellt.",
-        "choose_language": "Wählen Sie Ihre Sprache:",
-        "compound_on": "Gewinn-Zusammenrechnung aktiviert.",
-        "compound_off": "Gewinn-Zusammenrechnung deaktiviert.",
-        "admin_not_auth": "Sie sind nicht berechtigt, diesen Befehl zu verwenden.",
-        "admin_report": "Admin-Bericht:\nGesamtanzahl der Benutzer: {total_users}\nGesamteinzahlungen: ${total_deposit:.2f}\nGesamtgewinn: ${total_profit:.2f}",
-    },
-    "hi": {
-        "welcome": "एआई ऑटो ट्रेडिंग बोट में आपका स्वागत है। कृपया एक विकल्प चुनें:",
-        "autotrading": "ऑटोट्रेडिंग सिस्टम",
-        "balance": "बैलेंस",
-        "contact_support": "सपोर्ट से संपर्क करें",
-        "main_menu": "मुख्य मेनू:",
-        "deposit_success": "₹{amount:.2f} का जमा सफलतापूर्वक पुष्टि हो गया! कृपया अपने लाभ प्राप्त करने के लिए अपना वॉलेट पता प्रदान करें:",
-        "activated": "AI ऑटो ट्रेडिंग सिस्टम सक्रिय हो गया है।",
-        "invalid_txid": "अमान्य ट्रांजेक्शन आईडी प्रारूप। कृपया पुनः प्रयास करें:",
-        "txid_received": "ट्रांजेक्शन आईडी प्राप्त हुआ: {txid}\nहमने आपके चयनित प्लान के आधार पर ₹{amount:.2f} का जमा पुष्टि किया है।\nकृपया जमा की पुष्टि करें।",
-        "language_set": "आपकी भाषा हिंदी में सेट हो गई है।",
-        "choose_language": "अपनी भाषा चुनें:",
-        "compound_on": "कंपाउंड लाभ सक्रिय किया गया है।",
-        "compound_off": "कंपाउंड लाभ निष्क्रिय किया गया है।",
-        "admin_not_auth": "आप इस कमांड का उपयोग करने के लिए अधिकृत नहीं हैं।",
-        "admin_report": "एडमिन रिपोर्ट:\nकुल उपयोगकर्ता: {total_users}\nकुल जमा: ₹{total_deposit:.2f}\nकुल लाभ: ₹{total_profit:.2f}",
-    },
-    "fr": {
-        "welcome": "Bienvenue sur le bot d'autotrading IA. Veuillez choisir une option :",
-        "autotrading": "Système d'autotrading",
-        "balance": "Solde",
-        "contact_support": "Contacter le support",
-        "main_menu": "Menu principal :",
-        "deposit_success": "Dépôt de ${amount:.2f} confirmé avec succès ! Veuillez fournir l'adresse de votre portefeuille pour recevoir vos gains :",
-        "activated": "Système d'autotrading IA activé.",
-        "invalid_txid": "Format d'ID de transaction invalide. Veuillez réessayer :",
-        "txid_received": "ID de transaction reçu : {txid}\nNous avons vérifié un dépôt de ${amount:.2f} selon votre plan sélectionné.\nVeuillez confirmer le dépôt.",
-        "language_set": "Votre langue a été définie sur le français.",
-        "choose_language": "Choisissez votre langue :",
-        "compound_on": "Gain composé activé.",
-        "compound_off": "Gain composé désactivé.",
-        "admin_not_auth": "Vous n'êtes pas autorisé à utiliser cette commande.",
-        "admin_report": "Rapport administrateur :\nTotal des utilisateurs : {total_users}\nDépôts totaux : ${total_deposit:.2f}\nGain total : ${total_profit:.2f}",
-    },
-    "zh": {
-        "welcome": "欢迎使用 AI 自动交易机器人。请选择一个选项：",
-        "autotrading": "自动交易系统",
-        "balance": "余额",
-        "contact_support": "联系支持",
-        "main_menu": "主菜单：",
-        "deposit_success": "存款 ${amount:.2f} 已成功确认！请提供您的钱包地址以接收收益：",
-        "activated": "AI 自动交易系统已激活。",
-        "invalid_txid": "无效的交易 ID 格式。请重试：",
-        "txid_received": "交易 ID 已收到：{txid}\n我们已根据您选择的计划验证了存款 ${amount:.2f}。\n请确认存款。",
-        "language_set": "您的语言已设置为中文。",
-        "choose_language": "请选择您的语言：",
-        "compound_on": "复利激活。",
-        "compound_off": "复利已停用。",
-        "admin_not_auth": "您无权使用此命令。",
-        "admin_report": "管理员报告：\n用户总数：{total_users}\n存款总额：${total_deposit:.2f}\n利润总额：${total_profit:.2f}",
-    },
+    # (Other languages can be filled in similarly if needed)
 }
 
 def get_msg(lang, key, **kwargs):
@@ -261,36 +131,12 @@ def get_msg(lang, key, **kwargs):
 # Trading Plans Configuration (Updated)
 # ------------------------
 TRADING_PLANS = {
-    "plan_1": {
-        "title": "🚨FIRST PLAN",
-        "equity_range": "$500 - $999",
-        "profit_percent": 25,
-    },
-    "plan_2": {
-        "title": "🚨SECOND PLAN",
-        "equity_range": "$1,000 - $4,999",
-        "profit_percent": 30,
-    },
-    "plan_3": {
-        "title": "🚨THIRD PLAN",
-        "equity_range": "$5,000 - $9,999",
-        "profit_percent": 45,
-    },
-    "plan_4": {
-        "title": "🚨FOURTH PLAN",
-        "equity_range": "$10,000 - $49,999",
-        "profit_percent": 50,
-    },
-    "plan_5": {
-        "title": "🚨 FIFTH PLAN",
-        "equity_range": "$50,000 - $199,999",
-        "profit_percent": 55,
-    },
-    "plan_6": {
-        "title": "🚨 SIXTH PLAN",
-        "equity_range": "$200,000 and above",
-        "profit_percent": 60,
-    },
+    "plan_1": {"title": "🚨FIRST PLAN",  "equity_range": "$500 - $999",      "profit_percent": 25},
+    "plan_2": {"title": "🚨SECOND PLAN", "equity_range": "$1,000 - $4,999",    "profit_percent": 30},
+    "plan_3": {"title": "🚨THIRD PLAN",  "equity_range": "$5,000 - $9,999",    "profit_percent": 45},
+    "plan_4": {"title": "🚨FOURTH PLAN", "equity_range": "$10,000 - $49,999",  "profit_percent": 50},
+    "plan_5": {"title": "🚨 FIFTH PLAN", "equity_range": "$50,000 - $199,999",  "profit_percent": 55},
+    "plan_6": {"title": "🚨 SIXTH PLAN",  "equity_range": "$200,000 and above","profit_percent": 60},
 }
 
 # ------------------------
@@ -447,7 +293,6 @@ async def start(update: Update, context: CallbackContext) -> None:
     user = session.query(UserAccount).filter(UserAccount.telegram_id == telegram_id).first()
     session.close()
     if user is None or not user.language:
-        # New user or language not set: first ask for language.
         await choose_language(update, context)
     else:
         lang = user.language
@@ -475,7 +320,7 @@ async def main_menu(update: Update, context: CallbackContext) -> None:
     await update.callback_query.answer()
 
 # ------------------------
-# Autotrading System Handlers
+# Autotrading Handlers
 # ------------------------
 async def autotrading_menu(update: Update, context: CallbackContext) -> None:
     session = get_session()
@@ -527,7 +372,7 @@ async def plan_selection(update: Update, context: CallbackContext) -> None:
     await query.answer()
 
 # ------------------------
-# Payment Method Flow Handlers
+# Payment Method Handlers
 # ------------------------
 async def payment_method_menu(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -569,7 +414,7 @@ async def usdt_network_menu(update: Update, context: CallbackContext) -> None:
     await query.answer()
 
 # ------------------------
-# send_deposit_address: Makes the wallet address copyable
+# send_deposit_address: Displays a copyable wallet address
 # ------------------------
 async def send_deposit_address(update: Update, context: CallbackContext, crypto: str, network: str = None) -> None:
     query = update.callback_query
@@ -662,14 +507,13 @@ async def handle_txid(update: Update, context: CallbackContext) -> int:
 
 async def confirm_deposit_callback(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
-    choice = query.data  # "confirm_yes" or "confirm_no"
+    choice = query.data
     session = get_session()
     telegram_id = update.effective_user.id
     user = session.query(UserAccount).filter(UserAccount.telegram_id == telegram_id).first()
     lang = user.language if user else "en"
     session.close()
     if choice == "confirm_yes":
-        # Use the deposit_success message which echoes the deposit amount and asks for the wallet address.
         deposit_amount = context.user_data.get("deposit", 0)
         msg = get_msg(lang, "deposit_success", amount=deposit_amount)
         await query.edit_message_text(msg)
@@ -745,7 +589,7 @@ async def balance_handler(update: Update, context: CallbackContext) -> None:
     await query.answer()
 
 # ------------------------
-# Multi-Language Handlers (/language)
+# Language Handlers
 # ------------------------
 async def choose_language(update: Update, context: CallbackContext) -> None:
     keyboard = [
@@ -839,11 +683,11 @@ async def callback_dispatcher(update: Update, context: CallbackContext) -> None:
         await update.callback_query.answer(text="Option not handled.")
 
 # ------------------------
-# Main Function: Start the Bot
+# Main Function: Run the Bot using Webhooks
 # ------------------------
 def main() -> None:
-    my_secret = os.environ['TGBOTTOKEN']
-    application = Application.builder().token(my_secret).build()
+    port = int(os.environ.get("PORT", 8080))
+    application = Application.builder().token(TGBOTTOKEN).build()
 
     conv_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(deposit_done_callback, pattern="^deposit_done$")],
@@ -862,17 +706,21 @@ def main() -> None:
     application.add_handler(CommandHandler("admin", admin_dashboard))
     application.add_handler(conv_handler)
     application.add_handler(CallbackQueryHandler(callback_dispatcher))
-
-    # Register Global Error Handler
     application.add_error_handler(error_handler)
 
-    # Schedule Daily Profit Updates at Midnight UTC (adjust as necessary)
+    # Schedule Daily Profit Updates (Midnight UTC)
     job_time = datetime.time(hour=0, minute=0, second=0)
     application.job_queue.run_daily(update_daily_profits, time=job_time)
 
-    application.run_polling()
+    # Run the bot via webhooks:
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=port,
+        url_path=TGBOTTOKEN,
+        webhook_url=f"{WEBHOOK_BASE_URL}/{TGBOTTOKEN}"
+    )
 
 if __name__ == '__main__':
-    # Start Flask Web Server in a separate thread so Replit stays awake.
+    # Start Flask server for uptime monitoring (if needed)
     threading.Thread(target=run_flask).start()
     main()
