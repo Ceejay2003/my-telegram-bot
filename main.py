@@ -22,7 +22,7 @@ TGBOTTOKEN = os.environ["TGBOTTOKEN"]
 WEBHOOK_BASE_URL = os.environ["WEBHOOK_URL"]  # e.g. "https://my-telegram-bot-cpji.onrender.com"
 
 # ------------------------
-# Logging
+# Logging Configuration
 # ------------------------
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -70,7 +70,8 @@ class UserAccount(Base):
     wallet_address  = Column(String, nullable=True)
     language        = Column(String, default="en")
     compound        = Column(Boolean, default=False)
-    last_updated    = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    last_updated    = Column(DateTime, default=datetime.datetime.utcnow,
+                             onupdate=datetime.datetime.utcnow)
 
 engine = create_engine("sqlite:///crypto_bot.db", echo=False)
 Base.metadata.create_all(engine)
@@ -287,7 +288,7 @@ async def verify_txid_on_blockchain(txid: str, crypto: str, context: CallbackCon
                 return data.get("status") == "1" and data.get("result", {}).get("txreceipt_status") == "1"
             elif crypto == "SOL":
                 url = "https://api.mainnet-beta.solana.com/"
-                payload = {"jsonrpc": "2.0", "id": 1, "method": "getTransaction", "params": [txid, {"encoding":"json"}]}
+                payload = {"jsonrpc": "2.0", "id": 1, "method": "getTransaction", "params": [txid, {"encoding": "json"}]}
                 r = await session.post(url, json=payload, timeout=10)
                 data = await r.json()
                 return data.get("result") is not None
@@ -504,7 +505,7 @@ async def handle_txid(update: Update, context: CallbackContext):
         return STATE_TXID
     context.user_data["txid"] = txid
     plan = context.user_data.get("selected_plan")
-    deposit_amount = {"plan_1":500, "plan_2":1000, "plan_3":5000, "plan_4":10000, "plan_5":50000, "plan_6":200000}.get(plan, 0)
+    deposit_amount = {"plan_1": 500, "plan_2": 1000, "plan_3": 5000, "plan_4": 10000, "plan_5": 50000, "plan_6": 200000}.get(plan, 0)
     context.user_data["deposit"] = deposit_amount
     session = get_session()
     user = session.query(UserAccount).filter_by(telegram_id=update.effective_user.id).first()
@@ -665,14 +666,18 @@ async def callback_dispatcher(update: Update, context: CallbackContext):
         await update.callback_query.answer(text="Option not handled.")
 
 # ------------------------
-# Main: Build Application & Run via Webhook (no Flask)
+# Main: Build Application & Run via Webhook
 # ------------------------
 def main() -> None:
     port = int(os.environ.get("PORT", 8080))
+    webhook_url = f"{WEBHOOK_BASE_URL}/{TGBOTTOKEN}"
     app_bot = Application.builder().token(TGBOTTOKEN).build()
+    
     logger.info("🐳 Starting webhook server...")
-
-    # Conversation handler for deposit flow
+    logger.info("Listening on port %s", port)
+    logger.info("Webhook URL: %s", webhook_url)
+    
+    # Conversation handler for the deposit flow
     conv_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(deposit_done_callback, pattern="^deposit_done$")],
         states={
@@ -693,16 +698,16 @@ def main() -> None:
     app_bot.add_handler(CallbackQueryHandler(callback_dispatcher))
     app_bot.add_error_handler(error_handler)
 
-    # Schedule daily profit updates at midnight UTC
+    # Schedule daily profit updates at midnight (UTC)
     job_time = datetime.time(hour=0, minute=0, second=0)
     app_bot.job_queue.run_daily(update_daily_profits, time=job_time)
 
-    # Run the bot via webhooks on PORT
+    # Start the webhook server
     app_bot.run_webhook(
         listen="0.0.0.0",
         port=port,
         url_path=TGBOTTOKEN,
-        webhook_url=f"{WEBHOOK_BASE_URL}/{TGBOTTOKEN}"
+        webhook_url=webhook_url
     )
 
 if __name__ == "__main__":
