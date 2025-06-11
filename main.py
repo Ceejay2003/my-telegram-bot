@@ -251,9 +251,9 @@ TRADING_PLANS = {
 # ------------------------
 # Conversation States
 # ------------------------
-STATE_TXID   = 1
+STATE_TXID = 1
 STATE_CONFIRM = 2
-STATE_WALLET  = 3
+STATE_WALLET = 3
 
 # ------------------------
 # Verify TXID on Blockchain
@@ -341,7 +341,12 @@ async def start(update: Update, context: CallbackContext):
     session = get_session()
     user = session.query(UserAccount).filter_by(telegram_id=update.effective_user.id).first()
     session.close()
-    lang = user.language if user and user.language else "en"
+    # If no user or language is set, show language selection instead
+    if not user or not user.language:
+        await choose_language(update, context)
+        return
+
+    lang = user.language
     kb = [
         [InlineKeyboardButton(get_msg(lang, "autotrading"), callback_data="autotrading")],
         [InlineKeyboardButton(get_msg(lang, "balance"),     callback_data="balance")],
@@ -520,7 +525,9 @@ async def send_deposit_address(update: Update, context: CallbackContext):
          InlineKeyboardButton("BACK", callback_data="payment_method")],
     ]
     await update.callback_query.edit_message_text(
-        text=text, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(kb)
+        text=text,
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(kb)
     )
 
 async def payment_callback_handler(update: Update, context: CallbackContext):
@@ -692,10 +699,10 @@ async def set_language(update: Update, context: CallbackContext):
     session.commit()
     session.close()
 
-    # Immediately display welcome message with main menu in selected language.
+    # Immediately display welcome message with main menu using the selected language.
     kb = [
         [InlineKeyboardButton(get_msg(lang, "autotrading"), callback_data="autotrading")],
-        [InlineKeyboardButton(get_msg(lang, "balance"), callback_data="balance")],
+        [InlineKeyboardButton(get_msg(lang, "balance"),     callback_data="balance")],
         [InlineKeyboardButton(get_msg(lang, "contact_support"), url="https://t.me/cryptotitan999")],
     ]
     await update.callback_query.edit_message_text(get_msg(lang, "welcome"), reply_markup=InlineKeyboardMarkup(kb))
