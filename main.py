@@ -14,12 +14,13 @@ from telegram.ext import (
     filters,
     CallbackContext,
 )
+import telegram.error
 
 # ------------------------
 # Environment Variables
 # ------------------------
 TGBOTTOKEN = os.environ["TGBOTTOKEN"]
-WEBHOOK_BASE_URL = os.environ["WEBHOOK_URL"]  # e.g. "https://my-telegram-bot-cpji.onrender.com"
+WEBHOOK_BASE_URL = os.environ["WEBHOOK_URL"]  # e.g. "https://your-app.onrender.com"
 
 # ------------------------
 # Logging Configuration
@@ -57,6 +58,7 @@ from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, D
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 Base = declarative_base()
+
 class UserAccount(Base):
     __tablename__ = "user_accounts"
     id              = Column(Integer, primary_key=True)
@@ -76,6 +78,7 @@ class UserAccount(Base):
 engine = create_engine("sqlite:///crypto_bot.db", echo=False)
 Base.metadata.create_all(engine)
 SessionLocal = sessionmaker(bind=engine)
+
 def get_session():
     return SessionLocal()
 
@@ -93,7 +96,6 @@ LANG = {
         "activated":       "AI AUTO TRADING SYSTEM ACTIVATED.",
         "invalid_txid":    "Invalid transaction ID format. Please try again:",
         "txid_received":   "Transaction ID received: {txid}\nWe have verified a deposit of ${amount:.2f} based on your selected plan.\nPlease confirm the deposit.",
-        "language_set":    "Your language has been set to English.",
         "choose_language": "Choose your language:",
         "compound_on":     "Compound profit activated.",
         "compound_off":    "Compound profit deactivated.",
@@ -110,7 +112,6 @@ LANG = {
         "activated":       "SISTEMA DE AUTOTRADING ACTIVADO.",
         "invalid_txid":    "Formato de TXID inválido. Inténtalo de nuevo:",
         "txid_received":   "TXID recibido: {txid}\nHemos verificado un depósito de ${amount:.2f} basado en tu plan seleccionado.\nPor favor, confirma el depósito.",
-        "language_set":    "Tu idioma se ha configurado a Español.",
         "choose_language": "Elige tu idioma:",
         "compound_on":     "Compounding activado.",
         "compound_off":    "Compounding desactivado.",
@@ -127,7 +128,6 @@ LANG = {
         "activated":       "Система автоматической торговли с ИИ активирована.",
         "invalid_txid":    "Неверный формат ID транзакции. Попробуйте снова:",
         "txid_received":   "ID транзакции получен: {txid}\nМы подтвердили депозит в размере ${amount:.2f} на основе выбранного плана.\nПожалуйста, подтвердите депозит.",
-        "language_set":    "Ваш язык установлен на русский.",
         "choose_language": "Выберите ваш язык:",
         "compound_on":     "Комплексное начисление прибыли активировано.",
         "compound_off":    "Комплексное начисление прибыли деактивировано.",
@@ -144,7 +144,6 @@ LANG = {
         "activated":       "تم تفعيل نظام التداول التلقائي بالذكاء الاصطناعي.",
         "invalid_txid":    "تنسيق TXID غير صالح. يرجى المحاولة مرة أخرى:",
         "txid_received":   "TXID المستلم: {txid}\nتم التحقق من إيداع بقيمة ${amount:.2f} استنادًا إلى الخطة المختارة.\nيرجى تأكيد الإيداع.",
-        "language_set":    "تم تعيين لغتك إلى العربية.",
         "choose_language": "اختر لغتك:",
         "compound_on":     "تم تفعيل الربح المركب.",
         "compound_off":    "تم إيقاف الربح المركب.",
@@ -161,7 +160,6 @@ LANG = {
         "activated":       "Sistem Autotrading AI diaktifkan.",
         "invalid_txid":    "Format TXID tidak valid. Silakan coba lagi:",
         "txid_received":   "TXID diterima: {txid}\nKami telah memverifikasi deposit sebesar ${amount:.2f} berdasarkan rencana yang dipilih.\nSilakan konfirmasi deposit.",
-        "language_set":    "Bahasa Anda telah diatur ke Bahasa Indonesia.",
         "choose_language": "Pilih bahasa Anda:",
         "compound_on":     "Keuntungan gabungan diaktifkan.",
         "compound_off":    "Keuntungan gabungan dinonaktifkan.",
@@ -178,7 +176,6 @@ LANG = {
         "activated":       "KI-Auto-Trading-System wurde aktiviert.",
         "invalid_txid":    "Ungültiges TXID-Format. Bitte versuchen Sie es erneut:",
         "txid_received":   "TXID erhalten: {txid}\nWir haben eine Einzahlung von ${amount:.2f} basierend auf Ihrem gewählten Plan bestätigt.\nBitte bestätigen Sie die Einzahlung.",
-        "language_set":    "Ihre Sprache wurde auf Deutsch eingestellt.",
         "choose_language": "Wählen Sie Ihre Sprache:",
         "compound_on":     "Gewinnzusammenrechnung aktiviert.",
         "compound_off":    "Gewinnzusammenrechnung deaktiviert.",
@@ -195,7 +192,6 @@ LANG = {
         "activated":       "एआई ऑटो ट्रेडिंग सिस्टम सक्रिय हो गया है।",
         "invalid_txid":    "अमान्य TXID प्रारूप। कृपया पुनः प्रयास करें:",
         "txid_received":   "TXID प्राप्त हुआ: {txid}\nहमने आपके चुने गए प्लान के आधार पर ₹{amount:.2f} का जमा पुष्टि किया है।\nकृपया जमा की पुष्टि करें।",
-        "language_set":    "आपकी भाषा हिंदी में सेट हो गई है।",
         "choose_language": "अपनी भाषा चुनें:",
         "compound_on":     "कंपाउंड लाभ सक्रिय किया गया है।",
         "compound_off":    "कंपाउंड लाभ निष्क्रिय किया गया है।",
@@ -212,7 +208,6 @@ LANG = {
         "activated":       "Le système d'autotrading IA est activé.",
         "invalid_txid":    "Format TXID invalide. Veuillez réessayer :",
         "txid_received":   "TXID reçu : {txid}\nNous avons vérifié un dépôt de ${amount:.2f} selon votre plan sélectionné.\nVeuillez confirmer le dépôt.",
-        "language_set":    "Votre langue a été définie sur le français.",
         "choose_language": "Choisissez votre langue :",
         "compound_on":     "Le profit composé est activé.",
         "compound_off":    "Le profit composé est désactivé.",
@@ -229,7 +224,6 @@ LANG = {
         "activated":       "AI 自动交易系统已激活。",
         "invalid_txid":    "无效的 TXID 格式。请重试：",
         "txid_received":   "收到 TXID：{txid}\n我们已根据您选择的计划验证了 ${amount:.2f} 的存款。\n请确认存款。",
-        "language_set":    "您的语言已设置为中文。",
         "choose_language": "请选择您的语言：",
         "compound_on":     "复利激活。",
         "compound_off":    "复利已停用。",
@@ -257,12 +251,12 @@ TRADING_PLANS = {
 # ------------------------
 # Conversation States
 # ------------------------
-STATE_TXID = 1
+STATE_TXID   = 1
 STATE_CONFIRM = 2
-STATE_WALLET = 3
+STATE_WALLET  = 3
 
 # ------------------------
-# Transaction Verification Function
+# Verify TXID on Blockchain
 # ------------------------
 async def verify_txid_on_blockchain(txid: str, crypto: str, context: CallbackContext = None) -> bool:
     crypto = crypto.upper()
@@ -318,7 +312,7 @@ async def verify_txid_on_blockchain(txid: str, crypto: str, context: CallbackCon
     return False
 
 # ------------------------
-# Daily Profit Update Function
+# Daily Profit Update
 # ------------------------
 async def update_daily_profits(context: CallbackContext):
     session = get_session()
@@ -341,42 +335,57 @@ async def error_handler(update: object, context: CallbackContext):
     logger.error("Exception while handling an update:", exc_info=context.error)
 
 # ------------------------
-# Handlers Start Here
+# Bot Handlers
 # ------------------------
 async def start(update: Update, context: CallbackContext):
     session = get_session()
     user = session.query(UserAccount).filter_by(telegram_id=update.effective_user.id).first()
     session.close()
-    if not user or not user.language:
-        await choose_language(update, context)
+    lang = user.language if user and user.language else "en"
+    kb = [
+        [InlineKeyboardButton(get_msg(lang, "autotrading"), callback_data="autotrading")],
+        [InlineKeyboardButton(get_msg(lang, "balance"),     callback_data="balance")],
+        [InlineKeyboardButton(get_msg(lang, "contact_support"), url="https://t.me/cryptotitan999")],
+    ]
+    if update.callback_query:
+        await update.callback_query.edit_message_text(get_msg(lang, "welcome"), reply_markup=InlineKeyboardMarkup(kb))
     else:
-        lang = user.language
-        kb = [
-            [InlineKeyboardButton(get_msg(lang, "autotrading"), callback_data="autotrading")],
-            [InlineKeyboardButton(get_msg(lang, "balance"), callback_data="balance")],
-            [InlineKeyboardButton(get_msg(lang, "contact_support"), url="https://t.me/cryptotitan999")],
-        ]
         await update.message.reply_text(get_msg(lang, "welcome"), reply_markup=InlineKeyboardMarkup(kb))
 
 async def main_menu(update: Update, context: CallbackContext):
-    await update.callback_query.answer()
+    try:
+        await update.callback_query.answer()
+    except telegram.error.BadRequest as e:
+        if "too old" in str(e):
+            logger.warning("Expired callback in main_menu: %s", e)
+        else:
+            raise
+
     session = get_session()
     user = session.query(UserAccount).filter_by(telegram_id=update.effective_user.id).first()
     session.close()
     lang = user.language if user else "en"
     kb = [
         [InlineKeyboardButton(get_msg(lang, "autotrading"), callback_data="autotrading")],
-        [InlineKeyboardButton(get_msg(lang, "balance"), callback_data="balance")],
+        [InlineKeyboardButton(get_msg(lang, "balance"),     callback_data="balance")],
         [InlineKeyboardButton(get_msg(lang, "contact_support"), url="https://t.me/cryptotitan999")],
     ]
     await update.callback_query.edit_message_text(get_msg(lang, "main_menu"), reply_markup=InlineKeyboardMarkup(kb))
 
 async def autotrading_menu(update: Update, context: CallbackContext):
-    await update.callback_query.answer()
+    try:
+        await update.callback_query.answer()
+    except telegram.error.BadRequest as e:
+        if "too old" in str(e):
+            logger.warning("Expired callback in autotrading_menu: %s", e)
+        else:
+            raise
+
     session = get_session()
     user = session.query(UserAccount).filter_by(telegram_id=update.effective_user.id).first()
     session.close()
     lang = user.language if user else "en"
+
     lines = ["AI AUTO TRADING PLANS:"]
     for key, plan in TRADING_PLANS.items():
         lines.extend([
@@ -386,72 +395,103 @@ async def autotrading_menu(update: Update, context: CallbackContext):
             f"Profit: {plan['profit_percent']}% daily.",
             "ROI: Yes ✅"
         ])
+
     kb = [
-        [InlineKeyboardButton("FIRST PLAN", callback_data="plan_1"),
+        [InlineKeyboardButton("FIRST PLAN",  callback_data="plan_1"),
          InlineKeyboardButton("SECOND PLAN", callback_data="plan_2")],
-        [InlineKeyboardButton("THIRD PLAN", callback_data="plan_3"),
+        [InlineKeyboardButton("THIRD PLAN",  callback_data="plan_3"),
          InlineKeyboardButton("FOURTH PLAN", callback_data="plan_4")],
-        [InlineKeyboardButton("FIFTH PLAN", callback_data="plan_5"),
-         InlineKeyboardButton("SIXTH PLAN", callback_data="plan_6")],
-        [InlineKeyboardButton("BACK", callback_data="main_menu")],
+        [InlineKeyboardButton("FIFTH PLAN",  callback_data="plan_5"),
+         InlineKeyboardButton("SIXTH PLAN",  callback_data="plan_6")],
+        [InlineKeyboardButton("BACK",        callback_data="main_menu")],
     ]
     await update.callback_query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(kb))
 
 async def plan_selection(update: Update, context: CallbackContext):
-    await update.callback_query.answer()
+    try:
+        await update.callback_query.answer()
+    except telegram.error.BadRequest as e:
+        if "too old" in str(e):
+            logger.warning("Expired callback in plan_selection: %s", e)
+        else:
+            raise
+
     plan = update.callback_query.data
     context.user_data["selected_plan"] = plan
     details = TRADING_PLANS[plan]
-    text = (f"You selected {details['title']}:\n"
-            f"Equity Range: {details['equity_range']}\n"
-            f"Profit: {details['profit_percent']}% daily.\n\n"
-            "Please choose your deposit currency:")
+    text = (
+        f"You selected {details['title']}:\n"
+        f"Equity Range: {details['equity_range']}\n"
+        f"Profit: {details['profit_percent']}% daily.\n\n"
+        "Please choose your deposit currency:"
+    )
     kb = [
-        [InlineKeyboardButton("BTC", callback_data="pay_btc"),
-         InlineKeyboardButton("ETH", callback_data="pay_eth")],
+        [InlineKeyboardButton("BTC",  callback_data="pay_btc"),
+         InlineKeyboardButton("ETH",  callback_data="pay_eth")],
         [InlineKeyboardButton("USDT", callback_data="pay_usdt"),
-         InlineKeyboardButton("BNB", callback_data="pay_bnb")],
-        [InlineKeyboardButton("SOL", callback_data="pay_sol"),
-         InlineKeyboardButton("XRP", callback_data="pay_xrp")],
+         InlineKeyboardButton("BNB",  callback_data="pay_bnb")],
+        [InlineKeyboardButton("SOL",  callback_data="pay_sol"),
+         InlineKeyboardButton("XRP",  callback_data="pay_xrp")],
         [InlineKeyboardButton("BACK", callback_data="autotrading")],
     ]
     await update.callback_query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(kb))
 
 async def payment_method_menu(update: Update, context: CallbackContext):
-    await update.callback_query.answer()
+    try:
+        await update.callback_query.answer()
+    except telegram.error.BadRequest as e:
+        if "too old" in str(e):
+            logger.warning("Expired callback in payment_method_menu: %s", e)
+        else:
+            raise
+
     session = get_session()
     user = session.query(UserAccount).filter_by(telegram_id=update.effective_user.id).first()
     session.close()
     lang = user.language if user else "en"
+
     plan = context.user_data.get("selected_plan")
-    if plan in TRADING_PLANS:
-        text = f"You selected {TRADING_PLANS[plan]['title']}.\nChoose your deposit currency:"
-    else:
-        text = "Choose your deposit currency:"
+    text = f"You selected {TRADING_PLANS[plan]['title']}.\nChoose your deposit currency:" if plan in TRADING_PLANS else "Choose your deposit currency:"
     kb = [
-        [InlineKeyboardButton("BTC", callback_data="pay_btc"),
-         InlineKeyboardButton("ETH", callback_data="pay_eth")],
+        [InlineKeyboardButton("BTC",  callback_data="pay_btc"),
+         InlineKeyboardButton("ETH",  callback_data="pay_eth")],
         [InlineKeyboardButton("USDT", callback_data="pay_usdt"),
-         InlineKeyboardButton("BNB", callback_data="pay_bnb")],
-        [InlineKeyboardButton("SOL", callback_data="pay_sol"),
-         InlineKeyboardButton("XRP", callback_data="pay_xrp")],
+         InlineKeyboardButton("BNB",  callback_data="pay_bnb")],
+        [InlineKeyboardButton("SOL",  callback_data="pay_sol"),
+         InlineKeyboardButton("XRP",  callback_data="pay_xrp")],
         [InlineKeyboardButton("BACK", callback_data="autotrading")],
     ]
     await update.callback_query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(kb))
 
 async def usdt_network_menu(update: Update, context: CallbackContext):
-    await update.callback_query.answer()
+    try:
+        await update.callback_query.answer()
+    except telegram.error.BadRequest as e:
+        if "too old" in str(e):
+            logger.warning("Expired callback in usdt_network_menu: %s", e)
+        else:
+            raise
+
     kb = [
         [InlineKeyboardButton("USDT BEP20", callback_data="usdt_BEP20"),
          InlineKeyboardButton("USDT TRC20", callback_data="usdt_TRC20"),
-         InlineKeyboardButton("USDT TON", callback_data="usdt_TON")],
+         InlineKeyboardButton("USDT TON",   callback_data="usdt_TON")],
         [InlineKeyboardButton("BACK", callback_data="payment_method")],
     ]
-    await update.callback_query.edit_message_text("USDT selected. Please choose the USDT network:",
-                                                  reply_markup=InlineKeyboardMarkup(kb))
+    await update.callback_query.edit_message_text(
+        "USDT selected. Please choose the USDT network:",
+        reply_markup=InlineKeyboardMarkup(kb)
+    )
 
 async def send_deposit_address(update: Update, context: CallbackContext):
-    await update.callback_query.answer()
+    try:
+        await update.callback_query.answer()
+    except telegram.error.BadRequest as e:
+        if "too old" in str(e):
+            logger.warning("Expired callback in send_deposit_address: %s", e)
+        else:
+            raise
+
     data = update.callback_query.data
     if data.startswith("pay_"):
         crypto = data.split("_")[1].upper()
@@ -462,6 +502,7 @@ async def send_deposit_address(update: Update, context: CallbackContext):
         context.user_data["usdt_network"] = network
     else:
         return
+
     context.user_data["selected_crypto"] = crypto
     if crypto == "USDT" and network:
         addr = WALLET_ADDRESSES["USDT"].get(network, "Not configured")
@@ -469,13 +510,18 @@ async def send_deposit_address(update: Update, context: CallbackContext):
     else:
         addr = WALLET_ADDRESSES.get(crypto, "Not configured")
         disp = crypto
-    text = (f"Please deposit using {disp} to the following address:\n\n"
-            f"<code>{addr}</code>\n\nWhen done, click DONE.")
+
+    text = (
+        f"Please deposit using {disp} to the following address:\n\n"
+        f"<code>{addr}</code>\n\nWhen done, click DONE."
+    )
     kb = [
         [InlineKeyboardButton("DONE", callback_data="deposit_done"),
          InlineKeyboardButton("BACK", callback_data="payment_method")],
     ]
-    await update.callback_query.edit_message_text(text=text, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(kb))
+    await update.callback_query.edit_message_text(
+        text=text, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(kb)
+    )
 
 async def payment_callback_handler(update: Update, context: CallbackContext):
     data = update.callback_query.data
@@ -489,7 +535,13 @@ async def payment_callback_handler(update: Update, context: CallbackContext):
         await payment_method_menu(update, context)
 
 async def deposit_done_callback(update: Update, context: CallbackContext):
-    await update.callback_query.answer()
+    try:
+        await update.callback_query.answer()
+    except telegram.error.BadRequest as e:
+        if "too old" in str(e):
+            logger.warning("Expired callback in deposit_done_callback: %s", e)
+        else:
+            raise
     await update.callback_query.edit_message_text("Please enter your transaction ID:")
     return STATE_TXID
 
@@ -505,7 +557,10 @@ async def handle_txid(update: Update, context: CallbackContext):
         return STATE_TXID
     context.user_data["txid"] = txid
     plan = context.user_data.get("selected_plan")
-    deposit_amount = {"plan_1": 500, "plan_2": 1000, "plan_3": 5000, "plan_4": 10000, "plan_5": 50000, "plan_6": 200000}.get(plan, 0)
+    deposit_amount = {
+        "plan_1": 500, "plan_2": 1000, "plan_3": 5000,
+        "plan_4": 10000, "plan_5": 50000, "plan_6": 200000
+    }.get(plan, 0)
     context.user_data["deposit"] = deposit_amount
     session = get_session()
     user = session.query(UserAccount).filter_by(telegram_id=update.effective_user.id).first()
@@ -514,13 +569,20 @@ async def handle_txid(update: Update, context: CallbackContext):
     text = get_msg(lang, "txid_received", txid=txid, amount=deposit_amount)
     kb = [
         [InlineKeyboardButton("YES", callback_data="confirm_yes"),
-         InlineKeyboardButton("NO", callback_data="confirm_no")]
+         InlineKeyboardButton("NO",  callback_data="confirm_no")]
     ]
     await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(kb))
     return STATE_CONFIRM
 
 async def confirm_deposit_callback(update: Update, context: CallbackContext):
-    await update.callback_query.answer()
+    try:
+        await update.callback_query.answer()
+    except telegram.error.BadRequest as e:
+        if "too old" in str(e):
+            logger.warning("Expired callback in confirm_deposit_callback: %s", e)
+        else:
+            raise
+
     choice = update.callback_query.data
     session = get_session()
     user = session.query(UserAccount).filter_by(telegram_id=update.effective_user.id).first()
@@ -573,7 +635,13 @@ async def cancel_deposit(update: Update, context: CallbackContext):
     return ConversationHandler.END
 
 async def balance_handler(update: Update, context: CallbackContext):
-    await update.callback_query.answer()
+    try:
+        await update.callback_query.answer()
+    except telegram.error.BadRequest as e:
+        if "too old" in str(e):
+            logger.warning("Expired callback in balance_handler: %s", e)
+        else:
+            raise
     session = get_session()
     user = session.query(UserAccount).filter_by(telegram_id=update.effective_user.id).first()
     session.close()
@@ -588,22 +656,32 @@ async def balance_handler(update: Update, context: CallbackContext):
     kb = [[InlineKeyboardButton("BACK", callback_data="main_menu")]]
     await update.callback_query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(kb))
 
+# ------------------------
+# Language Selection Handlers
+# ------------------------
 async def choose_language(update: Update, context: CallbackContext):
     kb = [
-        [InlineKeyboardButton("English", callback_data="lang_en"),
-         InlineKeyboardButton("Español", callback_data="lang_es")],
-        [InlineKeyboardButton("Русский", callback_data="lang_ru"),
-         InlineKeyboardButton("العربية", callback_data="lang_ar")],
+        [InlineKeyboardButton("English",   callback_data="lang_en"),
+         InlineKeyboardButton("Español",   callback_data="lang_es")],
+        [InlineKeyboardButton("Русский",   callback_data="lang_ru"),
+         InlineKeyboardButton("العربية",  callback_data="lang_ar")],
         [InlineKeyboardButton("Bahasa Indonesia", callback_data="lang_id"),
-         InlineKeyboardButton("Deutsch", callback_data="lang_de")],
-        [InlineKeyboardButton("हिन्दी", callback_data="lang_hi"),
-         InlineKeyboardButton("Français", callback_data="lang_fr")],
-        [InlineKeyboardButton("中文", callback_data="lang_zh")]
+         InlineKeyboardButton("Deutsch",   callback_data="lang_de")],
+        [InlineKeyboardButton("हिन्दी",    callback_data="lang_hi"),
+         InlineKeyboardButton("Français",  callback_data="lang_fr")],
+        [InlineKeyboardButton("中文",      callback_data="lang_zh")]
     ]
     await update.message.reply_text(get_msg("en", "choose_language"), reply_markup=InlineKeyboardMarkup(kb))
 
 async def set_language(update: Update, context: CallbackContext):
-    await update.callback_query.answer()
+    try:
+        await update.callback_query.answer()
+    except telegram.error.BadRequest as e:
+        if "too old" in str(e):
+            logger.warning("Expired callback in set_language: %s", e)
+        else:
+            raise
+
     lang = update.callback_query.data.split("_")[1]
     session = get_session()
     user = session.query(UserAccount).filter_by(telegram_id=update.effective_user.id).first()
@@ -613,7 +691,14 @@ async def set_language(update: Update, context: CallbackContext):
         session.add(UserAccount(telegram_id=update.effective_user.id, language=lang))
     session.commit()
     session.close()
-    await update.callback_query.edit_message_text(get_msg(lang, "language_set"))
+
+    # Immediately display welcome message with main menu in selected language.
+    kb = [
+        [InlineKeyboardButton(get_msg(lang, "autotrading"), callback_data="autotrading")],
+        [InlineKeyboardButton(get_msg(lang, "balance"), callback_data="balance")],
+        [InlineKeyboardButton(get_msg(lang, "contact_support"), url="https://t.me/cryptotitan999")],
+    ]
+    await update.callback_query.edit_message_text(get_msg(lang, "welcome"), reply_markup=InlineKeyboardMarkup(kb))
 
 async def toggle_compound(update: Update, context: CallbackContext):
     session = get_session()
@@ -663,7 +748,13 @@ async def callback_dispatcher(update: Update, context: CallbackContext):
     elif data.startswith("lang_"):
         await set_language(update, context)
     else:
-        await update.callback_query.answer(text="Option not handled.")
+        try:
+            await update.callback_query.answer(text="Option not handled.")
+        except telegram.error.BadRequest as e:
+            if "too old" in str(e):
+                logger.warning("Expired callback in callback_dispatcher: %s", e)
+            else:
+                raise
 
 # ------------------------
 # Main: Build Application & Run via Webhook
@@ -677,19 +768,18 @@ def main() -> None:
     logger.info("Listening on port %s", port)
     logger.info("Webhook URL: %s", webhook_url)
     
-    # Conversation handler for the deposit flow
     conv_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(deposit_done_callback, pattern="^deposit_done$")],
         states={
-            STATE_TXID: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_txid)],
-            STATE_CONFIRM: [CallbackQueryHandler(confirm_deposit_callback, pattern="^confirm_")],
+            STATE_TXID:   [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_txid)],
+            STATE_CONFIRM:[CallbackQueryHandler(confirm_deposit_callback, pattern="^confirm_")],
             STATE_WALLET: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_wallet)],
         },
         fallbacks=[CommandHandler("cancel", cancel_deposit)],
         allow_reentry=True,
     )
 
-    # Register all handlers
+    # Register handlers
     app_bot.add_handler(CommandHandler("start", start))
     app_bot.add_handler(CommandHandler("language", choose_language))
     app_bot.add_handler(CommandHandler("compound", toggle_compound))
@@ -698,7 +788,7 @@ def main() -> None:
     app_bot.add_handler(CallbackQueryHandler(callback_dispatcher))
     app_bot.add_error_handler(error_handler)
 
-    # Schedule daily profit updates at midnight (UTC)
+    # Schedule daily profit updates (UTC midnight)
     job_time = datetime.time(hour=0, minute=0, second=0)
     app_bot.job_queue.run_daily(update_daily_profits, time=job_time)
 
