@@ -4,7 +4,6 @@ import asyncio
 import logging
 import datetime
 
-from aiohttp import web
 from contextlib import contextmanager
 from typing import Optional, Tuple, Dict
 
@@ -30,31 +29,6 @@ from telegram.ext import (
 from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import declarative_base, sessionmaker
-
-import tornado.web
-import tornado.httpserver
-from telegram.ext._utils.webhookhandler import WebhookServer, RequestHandler
-
-# 1) Define a simple Tornado handler for GET /
-class HealthHandler(tornado.web.RequestHandler):
-    def get(self):
-        self.set_status(200)
-        self.write("OK")
-
-# 2) Monkey-patch WebhookServer.__init__ to inject our health route
-_orig_init = WebhookServer.__init__
-
-def _patched_init(self, dispatcher, listen, port, url_path, secret_token=None):
-    # call original to build self._application & self._http_server
-    _orig_init(self, dispatcher, listen, port, url_path, secret_token)
-    # then add GET / → HealthHandler
-    self._application.add_handlers(
-        ".*$",  # host pattern (match all hosts)
-        [(r"/", HealthHandler)]
-    )
-
-WebhookServer.__init__ = _patched_init
-
 
 # ========================
 # Logging Configuration
@@ -121,19 +95,7 @@ class UserAccount(Base):
 # ========================
 # Health Endpoint (aiohttp)
 # ========================
-async def _health(request):
-    return web.Response(text="OK")
 
-def start_aiohttp_health():
-    """Start a minimal aiohttp app on PORT serving GET / for health checks."""
-    app = web.Application()
-    app.router.add_get("/", _health)
-    runner = web.AppRunner(app)
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(runner.setup())
-    site = web.TCPSite(runner, "0.0.0.0", int(os.environ.get("PORT", 8080)))
-    loop.run_until_complete(site.start())
-    logger.info("Health endpoint running at http://0.0.0.0:%s/", os.environ.get("PORT", 8080))
 
 # ========================
 # Wallet Addresses & Constants
@@ -1311,6 +1273,29 @@ def main() -> None:
 
     logger.info("🐳 Starting webhook server on port %s", port)
     logger.info("🔗 Webhook URL: %s", webhook_url)
+
+import tornado.web
+from telegram.ext._utils.webhookhandler import WebhookServer
+
+# 1) Health endpoint handler
+class HealthHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.set_status(200)
+        self.write("OK")
+
+# 2) Monkey-patch WebhookServer to serve "/" → HealthHandler
+_orig_init = WebhookServer.__init__
+
+def _patched_init(self, dispatcher, listen, port, url_path, secret_token=None):
+    # call original PTB init
+    _orig_init(self, dispatcher, listen, port, url_path, secret_token)
+    # then mount our handler on "/"
+    self._application.add_handlers(
+        ".*$",
+        [(r"/", HealthHandler)]
+    )
+
+WebhookServer.__init__ = _patched_init
 
     app_bot.run_webhook(
         listen       = "0.0.0.0",
