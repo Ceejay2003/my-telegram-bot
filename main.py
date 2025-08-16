@@ -1384,7 +1384,7 @@ def main() -> None:
 
 	# Webhook configuration
     port = int(os.environ.get("PORT", 8080))
-    webhook_url = f"{WEBHOOK_BASE_URL}/{TGBOTTOKEN}"
+    webhook_url = f"{WEBHOOK_URL}/{TGBOTTOKEN}"
 
     # Webhook setup
     app_bot.run_webhook(
