@@ -1309,14 +1309,13 @@ logger.info("🐳 Starting webhook server on port %s", port)
 logger.info("🔗 Webhook URL: %s", webhook_url)
 
 app_bot.run_webhook(
-        listen               = "0.0.0.0",
-        port                 = port,
-        url_path             = TGBOTTOKEN,
-        webhook_url          = webhook_url,
-        secret_token         = WEBHOOK_SECRET,
-        drop_pending_updates = True,
-    )
+    listen="0.0.0.0",
+    port=port,
+    url_path=TGBOTTOKEN,
+    webhook_url=webhook_url,
+    secret_token=WEBHOOK_SECRET,
+    drop_pending_updates=True,
+)
 
-# Only call main() here
 if __name__ == "__main__":
     main()
