@@ -1266,18 +1266,39 @@ def main() -> None:
 
      # --- Apply Tornado Health‐Check Patch ---
     import tornado.web
-    from telegram.ext._utils.webhookhandler import WebhookServer
+from telegram.ext._utils.webhookhandler import WebhookServer
 
-    class HealthHandler(tornado.web.RequestHandler):
-        def get(self):
-            self.set_status(200)
-            self.write("OK")
+# 1) Health endpoint handler
+class HealthHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.set_status(200)
+        self.write("OK")
 
-    _orig_init = WebhookServer.__init__
-    def _patched_init(self, dispatcher, listen, port, url_path, secret_token=None):
-        _orig_init(self, dispatcher, listen, port, url_path, secret_token)
-        self._application.add_handlers(".*$", [(r"/", HealthHandler)])
-    WebhookServer.__init__ = _patched_init
+# 2) Monkey‐patch WebhookServer to serve "/healthz"
+_orig_init = WebhookServer.__init__
+
+def _patched_init(self, dispatcher, listen, port, url_path, secret_token=None):
+    _orig_init(self, dispatcher, listen, port, url_path, secret_token)
+
+    # PTB-22’s WebhookServer stores Tornado app on `self.tornado_application`
+    # instead of `_application`. Use whichever exists:
+    if hasattr(self, "tornado_application"):
+        app = self.tornado_application
+    elif hasattr(self, "_application"):
+        app = self._application
+    else:
+        # fallback to the public Application if it exists
+        app = getattr(self, "application", None)
+
+    if app:
+        app.add_handlers(
+            ".*$",
+            [(r"/healthz", HealthHandler)]
+        )
+    else:
+        raise RuntimeError("Cannot patch WebhookServer: no Tornado app found")
+
+WebhookServer.__init__ = _patched_init
 
     # --- Start the Webhook Server ---
     port        = int(os.environ.get("PORT", 8080))
@@ -1286,7 +1307,7 @@ def main() -> None:
     logger.info("🐳 Starting webhook server on port %s", port)
     logger.info("🔗 Webhook URL: %s", webhook_url)
 
-    app_bot.run_webhook(
+app_bot.run_webhook(
         listen               = "0.0.0.0",
         port                 = port,
         url_path             = TGBOTTOKEN,
