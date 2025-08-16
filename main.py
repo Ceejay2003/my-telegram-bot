@@ -1273,7 +1273,7 @@ def main() -> None:
 
     	# Webhook configuration
     port = int(os.environ.get("PORT", 8080))
-    webhook_url = f"{WEBHOOK_URL}/{TGBOTTOKEN}"
+    webhook_url = f"{WEBHOOK_BASE_URL}/{TGBOTTOKEN}"
     
     # Create database if not exists
     if not os.path.exists("crypto_bot.db"):
