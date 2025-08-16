@@ -1285,7 +1285,8 @@ def main() -> None:
 
     logger.info("🐳 Starting webhook server on port %s", port)
     logger.info("🔗 Webhook URL: %s", webhook_url)
-
+    logger.info("🔍 Entered main(), proceeding to start webhook")
+    logger.info("🔍 Listening on %s:%s", listen, port)
     app_bot.run_webhook(
         listen               = "0.0.0.0",
         port                 = port,
