@@ -46,7 +46,11 @@ logger = logging.getLogger(__name__)
 TGBOTTOKEN       = os.environ["TGBOTTOKEN"]
 ADMIN_ID         = int(os.environ["ADMIN_ID"])
 DATABASE_URL     = os.environ["DATABASE_URL"]
-WEBHOOK_BASE_URL = os.environ["WEBHOOK_BASE_URL"]
+WEBHOOK_BASE_URL = os.environ.get(
+    "WEBHOOK_BASE_URL",
+    "https://example.com"
+)
+
 WEBHOOK_SECRET   = os.environ.get("WEBHOOK_SECRET", "")
 
 # ========================
