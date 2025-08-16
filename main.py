@@ -1271,8 +1271,9 @@ def main() -> None:
     if missing:
         raise RuntimeError(f"Missing environment variables: {', '.join(missing)}")
 
+    	# Webhook configuration
     port = int(os.environ.get("PORT", 8080))
-    webhook_url = f"{WEBHOOK_BASE_URL}/{TGBOTTOKEN}"
+    webhook_url = f"{WEBHOOK_URL}/{TGBOTTOKEN}"
     
     # Create database if not exists
     if not os.path.exists("crypto_bot.db"):
@@ -1381,10 +1382,6 @@ def main() -> None:
         logger.info("Keep-alive ping")
     
     app_bot.job_queue.run_repeating(keep_alive, interval=300, first=10)
-
-	# Webhook configuration
-    port = int(os.environ.get("PORT", 8080))
-    webhook_url = f"{WEBHOOK_URL}/{TGBOTTOKEN}"
 
     # Webhook setup
     app_bot.run_webhook(
