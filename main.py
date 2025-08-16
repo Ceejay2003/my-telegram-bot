@@ -1265,7 +1265,6 @@ def main() -> None:
     app_bot.job_queue.run_repeating(keep_alive, interval=300, first=10)
 
     # --- Start Health Endpoint + Webhook ---
-    start_aiohttp_health()
 
     port        = int(os.environ.get("PORT", 8080))
     webhook_path = f"/{TGBOTTOKEN}"
