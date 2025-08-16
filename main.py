@@ -31,6 +31,31 @@ from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, D
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import declarative_base, sessionmaker
 
+import tornado.web
+import tornado.httpserver
+from telegram.ext._utils.webhookhandler import WebhookServer, RequestHandler
+
+# 1) Define a simple Tornado handler for GET /
+class HealthHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.set_status(200)
+        self.write("OK")
+
+# 2) Monkey-patch WebhookServer.__init__ to inject our health route
+_orig_init = WebhookServer.__init__
+
+def _patched_init(self, dispatcher, listen, port, url_path, secret_token=None):
+    # call original to build self._application & self._http_server
+    _orig_init(self, dispatcher, listen, port, url_path, secret_token)
+    # then add GET / → HealthHandler
+    self._application.add_handlers(
+        ".*$",  # host pattern (match all hosts)
+        [(r"/", HealthHandler)]
+    )
+
+WebhookServer.__init__ = _patched_init
+
+
 # ========================
 # Logging Configuration
 # ========================
