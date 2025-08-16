@@ -31,7 +31,7 @@ import telegram.error
 # Environment Variables
 # ========================
 TGBOTTOKEN = os.environ["TGBOTTOKEN"]
-WEBHOOK_BASE_URL = os.environ.get("WEBHOOK_URL", "https://example.com")
+WEBHOOK_BASE_URL = os.environ.get("WEBHOOK_URL")
 ADMIN_ID = int(os.environ["ADMIN_ID"])
 
 # ========================
@@ -1381,6 +1381,10 @@ def main() -> None:
         logger.info("Keep-alive ping")
     
     app_bot.job_queue.run_repeating(keep_alive, interval=300, first=10)
+
+	# Webhook configuration
+    port = int(os.environ.get("PORT", 8080))
+    webhook_url = f"{WEBHOOK_BASE_URL}/{TGBOTTOKEN}"
 
     # Webhook setup
     app_bot.run_webhook(
