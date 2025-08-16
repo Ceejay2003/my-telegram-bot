@@ -1301,11 +1301,11 @@ def _patched_init(self, dispatcher, listen, port, url_path, secret_token=None):
 WebhookServer.__init__ = _patched_init
 
     # --- Start the Webhook Server ---
-    port        = int(os.environ.get("PORT", 8080))
-    webhook_url = f"{WEBHOOK_BASE_URL}/{TGBOTTOKEN}"
+port        = int(os.environ.get("PORT", 8080))
+webhook_url = f"{WEBHOOK_BASE_URL}/{TGBOTTOKEN}"
 
-    logger.info("🐳 Starting webhook server on port %s", port)
-    logger.info("🔗 Webhook URL: %s", webhook_url)
+logger.info("🐳 Starting webhook server on port %s", port)
+logger.info("🔗 Webhook URL: %s", webhook_url)
 
 app_bot.run_webhook(
         listen               = "0.0.0.0",
