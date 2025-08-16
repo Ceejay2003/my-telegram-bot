@@ -1296,14 +1296,14 @@ def _patched_init(self, dispatcher, listen, port, url_path, secret_token=None):
 
 WebhookServer.__init__ = _patched_init
 
-    app_bot.run_webhook(
-        listen       = "0.0.0.0",
-        port         = port,
-        url_path     = TGBOTTOKEN,
-        webhook_url  = webhook_url,
-        secret_token = WEBHOOK_SECRET,
-        drop_pending_updates = True
-    )
+app_bot.run_webhook(
+    listen               = "0.0.0.0",
+    port                 = port,
+    url_path             = TGBOTTOKEN,
+    webhook_url          = webhook_url,
+    secret_token         = WEBHOOK_SECRET,
+    drop_pending_updates = True,
+)
 
 if __name__ == "__main__":
     main()
