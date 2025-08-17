@@ -91,22 +91,26 @@ class UserAccount(Base):
 
 
 # ========================
-# Health Endpoint (aiohttp)
+# Health Endpoint (aiohttp) - fixed for Render
 # ========================
-async def _health(request):
-    return web.Response(text="OK")
-
-
-def start_health_server(port: int = 8000):
+async def _start_health_server(port: int = 8000):
     app = web.Application()
     app.router.add_get("/healthz", _health)
     runner = web.AppRunner(app)
-
-    loop = asyncio.get_event_loop()
-    loop.create_task(runner.setup())
-    loop.create_task(web.TCPSite(runner, "0.0.0.0", port).start())
-
+    await runner.setup()                          # must await setup before creating site
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
     logger.info("✅ Health server running on port %s/healthz", port)
+
+
+def start_health_server(port: int = 8000):
+    """
+    Schedules the async health server to run in the event loop.
+    On Render you MUST bind to the port in the $PORT env var.
+    """
+    loop = asyncio.get_event_loop()
+    # schedule the coroutine (do not await here)
+    loop.create_task(_start_health_server(port))
 
 
 # ========================
