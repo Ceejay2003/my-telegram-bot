@@ -1291,7 +1291,7 @@ webhook_url = f"{WEBHOOK_BASE_URL}/{TGBOTTOKEN}"
 logger.info("🐳 Starting webhook server on port %s", port)
 logger.info("🔗 Webhook URL: %s", webhook_url)
 
-#app_bot.run_webhook(
+    #app_bot.run_webhook(
         listen               = "0.0.0.0",
         port                 = port,
         url_path             = TGBOTTOKEN,
