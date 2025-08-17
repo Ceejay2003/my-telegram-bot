@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from typing import Optional, Tuple, Dict
 
 import aiohttp
-import tornado.web
+from aiohttp import web
 import telegram
 from telegram import (
     Update,
@@ -96,6 +96,21 @@ class UserAccount(Base):
 # ========================
 # Health Endpoint (aiohttp)
 # ========================
+
+async def _health(request):
+    return web.Response(text="OK")
+
+def start_health_server():
+    health_port = 8000
+    app = web.Application()
+    app.router.add_get("/healthz", _health)
+    runner = web.AppRunner(app)
+
+    loop = asyncio.get_event_loop()
+    loop.create_task(runner.setup())
+    loop.create_task(web.TCPSite(runner, "0.0.0.0", health_port).start())
+
+    logger.info("✅ Health server running on port %s/healthz", health_port)
 
 
 # ========================
@@ -1161,19 +1176,21 @@ async def callback_dispatcher(update: Update, context: ContextTypes.DEFAULT_TYPE
     except telegram.error.BadRequest:
         pass
 def main() -> None:
-    # --- Build the bot application ---
-    app_bot = (
-        Application
-        .builder()
-        .token(TGBOTTOKEN)
-        .build()
-    )
+    # --- Build Application ---
+    app_bot = Application.builder().token(TGBOTTOKEN).build()
 
-    # --- Register your handlers here ---
-    app_bot.add_handler(CommandHandler("health",     health_check))
-    app_bot.add_handler(CommandHandler("start",      start))
-    app_bot.add_handler(CommandHandler("language",   choose_language))
-    app_bot.add_handler(CommandHandler("compound",   toggle_compound))
+    # --- Register Handlers ---
+    # Health-check command
+    app_bot.add_handler(CommandHandler("health", health_check))
+
+    # Start & language
+    app_bot.add_handler(CommandHandler("start", start))
+    app_bot.add_handler(CommandHandler("language", choose_language))
+
+    # Toggle compound
+    app_bot.add_handler(CommandHandler("compound", toggle_compound))
+
+    # Override & setbalance
     app_bot.add_handler(CommandHandler("overridepayment", admin_override_payment))
     app_bot.add_handler(CommandHandler("setbalance",      admin_setbalance))
 
@@ -1182,20 +1199,20 @@ def main() -> None:
         entry_points=[CommandHandler("admin", admin_panel)],
         states={
             ADMIN_MAIN: [
-                CallbackQueryHandler(admin_dashboard,    pattern="^admin_dashboard$"),
-                CallbackQueryHandler(admin_ad_start,     pattern="^admin_ad_start$"),
-                CallbackQueryHandler(admin_user_select,  pattern="^admin_user_select$"),
-                CallbackQueryHandler(send_ad_confirmed,  pattern="^ad_confirm$"),
-                CallbackQueryHandler(admin_back,         pattern="^admin_back$"),
-                CallbackQueryHandler(admin_close,        pattern="^admin_close$"),
+                CallbackQueryHandler(admin_dashboard,  pattern="^admin_dashboard$"),
+                CallbackQueryHandler(admin_ad_start,   pattern="^admin_ad_start$"),
+                CallbackQueryHandler(admin_user_select,pattern="^admin_user_select$"),
+                CallbackQueryHandler(send_ad_confirmed,pattern="^ad_confirm$"),
+                CallbackQueryHandler(admin_back,       pattern="^admin_back$"),
+                CallbackQueryHandler(admin_close,      pattern="^admin_close$")
             ],
             ADMIN_USER_SELECT: [
                 CallbackQueryHandler(admin_user_selected, pattern="^admin_user_")
             ],
             ADMIN_BALANCE_EDIT: [
-                CallbackQueryHandler(admin_edit_balance,      pattern="^admin_edit_balance$"),
-                CallbackQueryHandler(admin_override_payment,  pattern="^admin_override_payment$"),
-                CallbackQueryHandler(admin_back,              pattern="^admin_back$"),
+                CallbackQueryHandler(admin_edit_balance,  pattern="^admin_edit_balance$"),
+                CallbackQueryHandler(admin_override_payment, pattern="^admin_override_payment$"),
+                CallbackQueryHandler(admin_back,          pattern="^admin_back$")
             ],
             STATE_AD_TEXT: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, handle_ad_text),
@@ -1203,18 +1220,18 @@ def main() -> None:
             ],
             STATE_AD_MEDIA: [
                 MessageHandler(filters.PHOTO | filters.VIDEO, handle_ad_media),
-                CallbackQueryHandler(skip_ad_media,            pattern="^ad_skip_media$"),
-                CallbackQueryHandler(admin_back,               pattern="^admin_back$")
+                CallbackQueryHandler(skip_ad_media, pattern="^ad_skip_media$"),
+                CallbackQueryHandler(admin_back,    pattern="^admin_back$")
             ],
             STATE_AD_TARGET: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, handle_ad_target),
-                CallbackQueryHandler(lambda u, c: handle_ad_target(u, c), pattern="^ad_target_all$"),
-                CallbackQueryHandler(admin_back,               pattern="^admin_back$")
+                CallbackQueryHandler(lambda u,c: handle_ad_target(u,c), pattern="^ad_target_all$"),
+                CallbackQueryHandler(admin_back,    pattern="^admin_back$")
             ],
             STATE_ADMIN_BALANCE: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, handle_admin_balance),
-                CallbackQueryHandler(admin_back,               pattern="^admin_back$")
-            ],
+                CallbackQueryHandler(admin_back,    pattern="^admin_back$")
+            ]
         },
         fallbacks=[CommandHandler("cancel", admin_close)],
         allow_reentry=True
@@ -1225,9 +1242,9 @@ def main() -> None:
     deposit_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(deposit_done_callback, pattern="^deposit_done$")],
         states={
-            STATE_TXID:    [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_txid)],
-            STATE_CONFIRM: [CallbackQueryHandler(confirm_deposit_callback, pattern="^confirm_")],
-            STATE_WALLET:  [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_wallet)],
+            STATE_TXID:   [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_txid)],
+            STATE_CONFIRM:[CallbackQueryHandler(confirm_deposit_callback, pattern="^confirm_")],
+            STATE_WALLET: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_wallet)],
         },
         fallbacks=[CommandHandler("cancel", cancel_deposit)],
         allow_reentry=True
@@ -1248,66 +1265,41 @@ def main() -> None:
     )
     app_bot.add_handler(details_conv)
 
-    # Generic callback dispatcher (fallback)
+    # Generic callback dispatcher (fallback for any unmatched callback)
     app_bot.add_handler(CallbackQueryHandler(callback_dispatcher))
 
     # Global error handler
     app_bot.add_error_handler(error_handler)
 
-    # --- Schedule jobs ---
+    # --- Jobs ---
     # Daily profits at UTC midnight
-    midnight_utc = datetime.time(hour=0, minute=0, second=0, tzinfo=datetime.timezone.utc)
-    app_bot.job_queue.run_daily(update_daily_profits, time=midnight_utc)
+    job_time = datetime.time(hour=0, minute=0, second=0, tzinfo=datetime.timezone.utc)
+    app_bot.job_queue.run_daily(update_daily_profits, time=job_time)
 
     # Keep-alive ping every 5 minutes
-    async def keep_alive(ctx):
-        logger.info("Keep-alive ping")
+    async def keep_alive(ctx): logger.info("Keep-alive ping")
     app_bot.job_queue.run_repeating(keep_alive, interval=300, first=10)
 
-    # --- Monkey-patch PTB’s WebhookServer to add a /healthz endpoint ---
-    import tornado.web
-    from telegram.ext._utils.webhookhandler import WebhookServer
+     # start the separate health-check server
+start_health_server()
 
-    class HealthHandler(tornado.web.RequestHandler):
-        def get(self):
-            self.set_status(200)
-            self.write("OK")
 
-    _orig_init = WebhookServer.__init__
+    # --- Start the Webhook Server ---
+port        = int(os.environ.get("PORT", 8080))
+webhook_url = f"{WEBHOOK_BASE_URL}/{TGBOTTOKEN}"
 
-    def _patched_init(self, dispatcher, listen, port, url_path, secret_token=None):
-        _orig_init(self, dispatcher, listen, port, url_path, secret_token)
+logger.info("🐳 Starting webhook server on port %s", port)
+logger.info("🔗 Webhook URL: %s", webhook_url)
 
-        if hasattr(self, "tornado_application"):
-            app = self.tornado_application
-        elif hasattr(self, "_application"):
-            app = self._application
-        else:
-            app = getattr(self, "application", None)
-
-        if not app:
-            raise RuntimeError("Cannot patch WebhookServer: no Tornado app found")
-
-        app.add_handlers(".*$", [(r"/healthz", HealthHandler)])
-
-    WebhookServer.__init__ = _patched_init
-
-    # --- Start the webhook server ---
-    port        = int(os.environ.get("PORT", 8080))
-    webhook_url = f"{WEBHOOK_BASE_URL}/{TGBOTTOKEN}"
-
-    logger.info("🐳 Starting webhook server on port %s", port)
-    logger.info("🔗 Webhook URL: %s", webhook_url)
-
-    app_bot.run_webhook(
-        listen              ="0.0.0.0",
-        port                =port,
-        url_path            =TGBOTTOKEN,
-        webhook_url         =webhook_url,
-        secret_token        =WEBHOOK_SECRET,
-        drop_pending_updates=True,
+#app_bot.run_webhook(
+        listen               = "0.0.0.0",
+        port                 = port,
+        url_path             = TGBOTTOKEN,
+        webhook_url          = webhook_url,
+        secret_token         = WEBHOOK_SECRET,
+        drop_pending_updates = True,
     )
 
-
+# Only call main() here
 if __name__ == "__main__":
     main()
