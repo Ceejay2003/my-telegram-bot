@@ -1264,58 +1264,52 @@ def main() -> None:
     # Keep-alive ping every 5 minutes
     async def keep_alive(ctx): logger.info("Keep-alive ping")
     app_bot.job_queue.run_repeating(keep_alive, interval=300, first=10)
-
-     # --- Apply Tornado Health‐Check Patch ---
+   # --- Monkey-patch PTB’s WebhookServer to add a /healthz endpoint ---
     import tornado.web
-from telegram.ext._utils.webhookhandler import WebhookServer
+    from telegram.ext._utils.webhookhandler import WebhookServer
 
-# 1) Health endpoint handler
-class HealthHandler(tornado.web.RequestHandler):
-    def get(self):
-        self.set_status(200)
-        self.write("OK")
+    class HealthHandler(tornado.web.RequestHandler):
+        def get(self):
+            self.set_status(200)
+            self.write("OK")
 
-# 2) Monkey‐patch WebhookServer to serve "/healthz"
-_orig_init = WebhookServer.__init__
+    _orig_init = WebhookServer.__init__
+    def _patched_init(self, dispatcher, listen, port, url_path, secret_token=None):
+        # call the original init to set up Tornado internally
+        _orig_init(self, dispatcher, listen, port, url_path, secret_token)
 
-def _patched_init(self, dispatcher, listen, port, url_path, secret_token=None):
-    _orig_init(self, dispatcher, listen, port, url_path, secret_token)
+        # PTB v22+ stores the Tornado app on one of these attributes:
+        if hasattr(self, "tornado_application"):
+            app = self.tornado_application
+        elif hasattr(self, "_application"):
+            app = self._application
+        else:
+            app = getattr(self, "application", None)
 
-    # PTB-22’s WebhookServer stores Tornado app on `self.tornado_application`
-    # instead of `_application`. Use whichever exists:
-    if hasattr(self, "tornado_application"):
-        app = self.tornado_application
-    elif hasattr(self, "_application"):
-        app = self._application
-    else:
-        # fallback to the public Application if it exists
-        app = getattr(self, "application", None)
+        if not app:
+            raise RuntimeError("Cannot patch WebhookServer: no Tornado app found")
 
-    if app:
-        app.add_handlers(
-            ".*$",
-            [(r"/healthz", HealthHandler)]
-        )
-    else:
-        raise RuntimeError("Cannot patch WebhookServer: no Tornado app found")
+        # mount our health-check handler
+        app.add_handlers(".*$", [(r"/healthz", HealthHandler)])
 
-WebhookServer.__init__ = _patched_init
+    WebhookServer.__init__ = _patched_init
 
-    # --- Start the Webhook Server ---
-port        = int(os.environ.get("PORT", 8080))
-webhook_url = f"{WEBHOOK_BASE_URL}/{TGBOTTOKEN}"
+    # --- Start the webhook server ---
+    port        = int(os.environ.get("PORT", 8080))
+    webhook_url = f"{WEBHOOK_BASE_URL}/{TGBOTTOKEN}"
 
-logger.info("🐳 Starting webhook server on port %s", port)
-logger.info("🔗 Webhook URL: %s", webhook_url)
+    logger.info("🐳 Starting webhook server on port %s", port)
+    logger.info("🔗 Webhook URL: %s", webhook_url)
 
-app_bot.run_webhook(
-    listen="0.0.0.0",
-    port=port,
-    url_path=TGBOTTOKEN,
-    webhook_url=webhook_url,
-    secret_token=WEBHOOK_SECRET,
-    drop_pending_updates=True,
-)
+    app_bot.run_webhook(
+        listen               = "0.0.0.0",
+        port                 = port,
+        url_path             = TGBOTTOKEN,
+        webhook_url          = webhook_url,
+        secret_token         = WEBHOOK_SECRET,
+        drop_pending_updates = True,
+    )
 
+# only invoke main() when run as a script
 if __name__ == "__main__":
-    main()
+    
