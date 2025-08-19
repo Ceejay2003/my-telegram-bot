@@ -1337,7 +1337,7 @@ def main() -> None:
         logger.exception("Failed to start health server: %s", e)
 
     # --- Start the Bot ---
-    port = int(os.environ.get("PORT", 8443))
+    port = int(os.environ.get("PORT", 8000))
     if WEBHOOK_BASE_URL:
         webhook_url = f"{WEBHOOK_BASE_URL}/{TGBOTTOKEN}"
         logger.info("🐳 Starting webhook server on port %s", port)
@@ -1357,5 +1357,11 @@ def main() -> None:
         app_bot.run_polling(drop_pending_updates=True)
 
 
+# Ensure tables exist in DB
 if __name__ == "__main__":
+    from sqlalchemy import inspect
+    insp = inspect(engine)
+    if not insp.has_table("user_accounts"):
+        logger.info("Creating missing tables in DB...")
+        Base.metadata.create_all(engine)
     main()
