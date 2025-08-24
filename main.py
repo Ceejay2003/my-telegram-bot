@@ -4,10 +4,11 @@ import asyncio
 import logging
 import datetime
 from contextlib import contextmanager
+from typing import Union
 
 import aiohttp
 from aiohttp import web
-from telegram import Update
+from telegram import Update, Message
 from telegram.ext import (
     Application, CommandHandler,
     ContextTypes
