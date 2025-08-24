@@ -25,7 +25,7 @@ from telegram.ext import (
     filters,
     ContextTypes
 )
-from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime
+from sqlalchemy import create_engine, Column, Integer, BigInteger, String, Float, Boolean, DateTime
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import declarative_base, sessionmaker
 
@@ -57,7 +57,7 @@ SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 class UserAccount(Base):
     __tablename__ = "user_accounts"
     id              = Column(Integer, primary_key=True)
-    telegram_id     = Column(Integer, unique=True, nullable=False)
+    telegram_id     = Column(BigInteger, unique=True, nullable=False)
     full_name       = Column(String)
     email           = Column(String)
     country         = Column(String)
