@@ -4,33 +4,20 @@ import asyncio
 import logging
 import datetime
 from contextlib import contextmanager
-from typing import Optional, Tuple, Dict, Union
 
 import aiohttp
 from aiohttp import web
-import telegram
-from telegram import (
-    Update,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    Message,
-)
-from telegram.constants import ParseMode
+from telegram import Update
 from telegram.ext import (
-    Application,
-    CommandHandler,
-    CallbackQueryHandler,
-    ConversationHandler,
-    MessageHandler,
-    filters,
+    Application, CommandHandler,
     ContextTypes
 )
-from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime
+from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime, inspect
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 # ========================
-# Logging Configuration
+# Logging
 # ========================
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -39,7 +26,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ========================
-# Environment Variables
+# Env Vars
 # ========================
 TGBOTTOKEN       = os.environ["TGBOTTOKEN"]
 ADMIN_ID         = int(os.environ["ADMIN_ID"])
@@ -48,14 +35,34 @@ WEBHOOK_BASE_URL = os.environ.get("WEBHOOK_BASE_URL", "").rstrip("/")
 WEBHOOK_SECRET   = os.environ.get("WEBHOOK_SECRET", "")
 
 # ========================
-# Database Setup (Postgres + SQLAlchemy)
+# Database
 # ========================
 Base = declarative_base()
 engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
-Base.metadata.create_all(engine)
 
+class UserAccount(Base):
+    __tablename__ = "user_accounts"
+    id              = Column(Integer, primary_key=True)
+    telegram_id     = Column(Integer, unique=True, nullable=False)
+    full_name       = Column(String)
+    email           = Column(String)
+    country         = Column(String)
+    selected_plan   = Column(String)
+    selected_crypto = Column(String)
+    usdt_network    = Column(String)
+    txid            = Column(String)
+    deposit         = Column(Float, default=0)
+    profit          = Column(Float, default=0)
+    wallet_address  = Column(String)
+    language        = Column(String, default="en")
+    compound        = Column(Boolean, default=False)
+    last_updated    = Column(DateTime, default=datetime.datetime.utcnow,
+                             onupdate=datetime.datetime.utcnow)
 
+# ========================
+# DB session helper
+# ========================
 @contextmanager
 def db_session():
     session = SessionLocal()
@@ -69,47 +76,23 @@ def db_session():
     finally:
         session.close()
 
-
-class UserAccount(Base):
-    __tablename__ = "user_accounts"
-    id              = Column(Integer, primary_key=True)
-    telegram_id     = Column(Integer, unique=True, nullable=False)
-    full_name       = Column(String, nullable=True)
-    email           = Column(String, nullable=True)
-    country         = Column(String, nullable=True)
-    selected_plan   = Column(String, nullable=True)
-    selected_crypto = Column(String, nullable=True)
-    usdt_network    = Column(String, nullable=True)
-    txid            = Column(String, nullable=True)
-    deposit         = Column(Float, default=0)
-    profit          = Column(Float, default=0)
-    wallet_address  = Column(String, nullable=True)
-    language        = Column(String, default="en")
-    compound        = Column(Boolean, default=False)
-    last_updated    = Column(DateTime, default=datetime.datetime.utcnow,
-                             onupdate=datetime.datetime.utcnow)
-
-
 # ========================
-# Health Endpoint (aiohttp) - fixed for Render
+# Health Server
 # ========================
-async def _start_health_server(port: int = 8000):
+async def _health(request):
+    return web.Response(text="OK")
+
+async def _start_health_server(port: int):
     app = web.Application()
     app.router.add_get("/healthz", _health)
     runner = web.AppRunner(app)
-    await runner.setup()                          # must await setup before creating site
+    await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
-    logger.info("✅ Health server running on port %s/healthz", port)
+    logger.info(f"✅ Health server running on port {port}/healthz")
 
-
-def start_health_server(port: int = 8000):
-    """
-    Schedules the async health server to run in the event loop.
-    On Render you MUST bind to the port in the $PORT env var.
-    """
+def start_health_server(port: int):
     loop = asyncio.get_event_loop()
-    # schedule the coroutine (do not await here)
     loop.create_task(_start_health_server(port))
 
 
@@ -1231,137 +1214,63 @@ async def callback_dispatcher(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 # ========================
-# Main entrypoint
+# Main
 # ========================
 def main() -> None:
-    # --- Build Application ---
+    # --- Ensure DB tables exist ---
+    insp = inspect(engine)
+    if not insp.has_table("user_accounts"):
+        logger.info("Creating missing tables in DB...")
+        Base.metadata.create_all(engine)
+
+    # --- Build App ---
     app_bot = Application.builder().token(TGBOTTOKEN).build()
 
-    # --- Register Handlers ---
-    app_bot.add_handler(CommandHandler("health", health_check))
+    # Register handlers
     app_bot.add_handler(CommandHandler("start", start))
-    app_bot.add_handler(CommandHandler("language", choose_language))
-    app_bot.add_handler(CommandHandler("compound", toggle_compound))
-    app_bot.add_handler(CommandHandler("overridepayment", admin_override_payment))
-    app_bot.add_handler(CommandHandler("setbalance",      admin_setbalance))
 
-    # Admin panel conversation
-    admin_conv = ConversationHandler(
-        entry_points=[CommandHandler("admin", admin_panel)],
-        states={
-            ADMIN_MAIN: [
-                CallbackQueryHandler(admin_dashboard,  pattern="^admin_dashboard$"),
-                CallbackQueryHandler(admin_ad_start,   pattern="^admin_ad_start$"),
-                CallbackQueryHandler(admin_user_select,pattern="^admin_user_select$"),
-                CallbackQueryHandler(send_ad_confirmed,pattern="^ad_confirm$"),
-                CallbackQueryHandler(admin_back,       pattern="^admin_back$"),
-                CallbackQueryHandler(admin_close,      pattern="^admin_close$")
-            ],
-            ADMIN_USER_SELECT: [
-                CallbackQueryHandler(admin_user_selected, pattern="^admin_user_")
-            ],
-            ADMIN_BALANCE_EDIT: [
-                CallbackQueryHandler(admin_edit_balance,  pattern="^admin_edit_balance$"),
-                CallbackQueryHandler(admin_override_payment, pattern="^admin_override_payment$"),
-                CallbackQueryHandler(admin_back,          pattern="^admin_back$")
-            ],
-            STATE_AD_TEXT: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_ad_text),
-                CallbackQueryHandler(admin_back, pattern="^admin_back$")
-            ],
-            STATE_AD_MEDIA: [
-                MessageHandler(filters.PHOTO | filters.VIDEO, handle_ad_media),
-                CallbackQueryHandler(skip_ad_media, pattern="^ad_skip_media$"),
-                CallbackQueryHandler(admin_back,    pattern="^admin_back$")
-            ],
-            STATE_AD_TARGET: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_ad_target),
-                CallbackQueryHandler(lambda u,c: handle_ad_target(u,c), pattern="^ad_target_all$"),
-                CallbackQueryHandler(admin_back,    pattern="^admin_back$")
-            ],
-            STATE_ADMIN_BALANCE: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_admin_balance),
-                CallbackQueryHandler(admin_back,    pattern="^admin_back$")
-            ]
-        },
-        fallbacks=[CommandHandler("cancel", admin_close)],
-        allow_reentry=True
-    )
-    app_bot.add_handler(admin_conv)
-
-    # Deposit conversation
-    deposit_conv = ConversationHandler(
-        entry_points=[CallbackQueryHandler(deposit_done_callback, pattern="^deposit_done$")],
-        states={
-            STATE_TXID:   [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_txid)],
-            STATE_CONFIRM:[CallbackQueryHandler(confirm_deposit_callback, pattern="^confirm_")],
-            STATE_WALLET: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_wallet)],
-        },
-        fallbacks=[CommandHandler("cancel", cancel_deposit)],
-        allow_reentry=True
-    )
-    app_bot.add_handler(deposit_conv)
-
-    # Details collection conversation
-    details_conv = ConversationHandler(
-        entry_points=[CallbackQueryHandler(start_collect_details, pattern="^collect_details$")],
-        states={
-            STATE_NAME:       [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_name)],
-            STATE_EMAIL:      [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_email)],
-            STATE_COUNTRY:    [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_country)],
-            STATE_USDT_TRC20: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_usdt_trc20)],
-        },
-        fallbacks=[CommandHandler("cancel", cancel_deposit)],
-        allow_reentry=True
-    )
-    app_bot.add_handler(details_conv)
-
-    # Generic callback dispatcher (fallback for any unmatched callback)
-    app_bot.add_handler(CallbackQueryHandler(callback_dispatcher))
-
-    # Global error handler
+    # Error handler
     app_bot.add_error_handler(error_handler)
 
-    # --- Jobs ---
-    job_time = datetime.time(hour=0, minute=0, second=0, tzinfo=datetime.timezone.utc)
-    app_bot.job_queue.run_daily(update_daily_profits, time=job_time)
+    # Jobs
+    app_bot.job_queue.run_repeating(lambda ctx: logger.info("Keep-alive ping"), interval=300, first=10)
 
-    async def keep_alive(ctx):
-        logger.info("Keep-alive ping")
-    app_bot.job_queue.run_repeating(keep_alive, interval=300, first=10)
+    # --- Health server ---
+    render_port = int(os.environ.get("PORT", 8000))
+    start_health_server(port=render_port)
 
-    # Start health server
-    try:
-        start_health_server(port=int(os.environ.get("HEALTH_PORT", 8000)))
-    except Exception as e:
-        logger.exception("Failed to start health server: %s", e)
+    loop = asyncio.get_event_loop()
 
-    # --- Start the Bot ---
-    port = int(os.environ.get("PORT", 8000))
     if WEBHOOK_BASE_URL:
+        # Webhook mode
         webhook_url = f"{WEBHOOK_BASE_URL}/{TGBOTTOKEN}"
-        logger.info("🐳 Starting webhook server on port %s", port)
-        logger.info("🔗 Webhook URL: %s", webhook_url)
-        # Use webhook mode (Render / production)
+        logger.info("🔗 Using webhook: %s", webhook_url)
+        try:
+            loop.run_until_complete(app_bot.bot.set_webhook(
+                url=webhook_url,
+                secret_token=WEBHOOK_SECRET or None
+            ))
+        except Exception as e:
+            logger.exception("Failed to set webhook: %s", e)
+
         app_bot.run_webhook(
             listen="0.0.0.0",
-            port=port,
+            port=render_port,
             url_path=TGBOTTOKEN,
             webhook_url=webhook_url,
             secret_token=WEBHOOK_SECRET or None,
             drop_pending_updates=True,
         )
     else:
-        # Fallback to polling for local testing
-        logger.info("🔁 Starting polling mode (WEBHOOK_BASE_URL not set).")
+        # Polling mode
+        try:
+            loop.run_until_complete(app_bot.bot.delete_webhook(drop_pending_updates=True))
+            logger.info("Deleted existing webhook to allow polling.")
+        except Exception as e:
+            logger.warning("Could not delete webhook: %s", e)
+
+        logger.info("🔁 Starting polling mode")
         app_bot.run_polling(drop_pending_updates=True)
 
-
-# Ensure tables exist in DB
 if __name__ == "__main__":
-    from sqlalchemy import inspect
-    insp = inspect(engine)
-    if not insp.has_table("user_accounts"):
-        logger.info("Creating missing tables in DB...")
-        Base.metadata.create_all(engine)
     main()
