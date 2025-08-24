@@ -4,6 +4,7 @@ import asyncio
 import logging
 import datetime
 from contextlib import contextmanager
+from typing import Union
 
 import aiohttp
 from aiohttp import web
