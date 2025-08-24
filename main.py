@@ -4,16 +4,28 @@ import asyncio
 import logging
 import datetime
 from contextlib import contextmanager
-from typing import Union
+from typing import Optional, Tuple, Dict, Union
 
 import aiohttp
 from aiohttp import web
-from telegram import Update, Message
+import telegram
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+)
+from telegram.constants import ParseMode
 from telegram.ext import (
-    Application, CommandHandler,
+    Application,
+    CommandHandler,
+    CallbackQueryHandler,
+    ConversationHandler,
+    MessageHandler,
+    filters,
     ContextTypes
 )
-from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime, inspect
+from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import declarative_base, sessionmaker
 
