@@ -1,3 +1,14 @@
+from flask import Flask
+import threading
+
+app = Flask(__name__)
+
+@app.route('/healthz')
+def healthz():
+    return "OK", 200
+
+def run_flask():
+    app.run(host="0.0.0.0", port=8080)
 #!/usr/bin/env python3
 import os
 import asyncio
@@ -1366,4 +1377,9 @@ def main() -> None:
         app_bot.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
-    main()
+    # Start Flask health server
+    threading.Thread(target=run_flask, daemon=True).start()
+
+    # Start Telegram bot
+    application.run_polling()
+
