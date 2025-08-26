@@ -1381,5 +1381,4 @@ if __name__ == "__main__":
     threading.Thread(target=run_flask, daemon=True).start()
 
     # Start Telegram bot
-    application.run_polling()
-
+    main() 
