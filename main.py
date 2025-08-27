@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, request
 import threading
 
 app = Flask(__name__)
@@ -57,6 +57,16 @@ ADMIN_ID         = int(os.environ["ADMIN_ID"])
 DATABASE_URL     = os.environ["DATABASE_URL"]
 WEBHOOK_BASE_URL = os.environ.get("WEBHOOK_BASE_URL", "").rstrip("/")
 WEBHOOK_SECRET   = os.environ.get("WEBHOOK_SECRET", "")
+# --- Render/webhook helpers ---
+RENDER_HOST = os.environ.get("RENDER_EXTERNAL_HOSTNAME", "")
+WEBHOOK_BASE_URL = (os.environ.get("WEBHOOK_BASE_URL", "") or "").rstrip("/")
+if not WEBHOOK_BASE_URL and RENDER_HOST:
+    # Build it automatically on Render if not explicitly set
+    WEBHOOK_BASE_URL = f"https://{RENDER_HOST}"
+
+# Define the port used by Render so your webhook branch works
+render_port = int(os.environ.get("PORT", "8080"))
+
 
 # ========================
 # Database
@@ -1104,6 +1114,21 @@ async def admin_override_payment(update: Update, context: ContextTypes.DEFAULT_T
     await context.bot.send_message(chat_id=user_id, text=get_msg(u.language, "activated"))
     await update.message.reply_text(f"Override done for {user_id}")
 
+async def admin_override_payment_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Shown when admin taps the 'Override Payment' button."""
+    query = update.callback_query
+    await query.answer()
+
+    text = (
+        "Send the command like this:\n"
+        "/overridepayment <user_id> <plan_key> [amount]\n\n"
+        "Examples:\n"
+        "• /overridepayment 123456 basic 100\n"
+        "• /overridepayment 987654 pro   (uses the default plan amount)\n\n"
+        "Plan keys: basic, standard, pro (or the exact keys you use in DB)."
+    )
+    await query.message.reply_text(text)
+
 
 async def admin_setbalance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
@@ -1269,7 +1294,7 @@ def main() -> None:
             ],
             ADMIN_BALANCE_EDIT: [
                 CallbackQueryHandler(admin_edit_balance,  pattern="^admin_edit_balance$"),
-                CallbackQueryHandler(admin_override_payment, pattern="^admin_override_payment$"),
+                CallbackQueryHandler(admin_override_payment_menu, pattern="^admin_override_payment$"),
                 CallbackQueryHandler(admin_back,          pattern="^admin_back$")
             ],
             STATE_AD_TEXT: [
@@ -1377,8 +1402,7 @@ def main() -> None:
         app_bot.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
-    # Start Flask health server
-    threading.Thread(target=run_flask, daemon=True).start()
-
-    # Start Telegram bot
-    main() 
+    # Only run Flask health server when using polling.
+    if not WEBHOOK_BASE_URL:
+        threading.Thread(target=run_flask, daemon=True).start()
+    main()
