@@ -8,7 +8,8 @@ def healthz():
     return "OK", 200
 
 def run_flask():
-    app.run(host="0.0.0.0", port=8080)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+
 #!/usr/bin/env python3
 import os
 import asyncio
@@ -55,17 +56,15 @@ logger = logging.getLogger(__name__)
 TGBOTTOKEN       = os.environ["TGBOTTOKEN"]
 ADMIN_ID         = int(os.environ["ADMIN_ID"])
 DATABASE_URL     = os.environ["DATABASE_URL"]
+# NEW: let us force polling on Render free tier
+FORCE_POLLING = os.environ.get("FORCE_POLLING", "1") == "1"  # default: ON
+
 WEBHOOK_BASE_URL = os.environ.get("WEBHOOK_BASE_URL", "").rstrip("/")
 WEBHOOK_SECRET   = os.environ.get("WEBHOOK_SECRET", "")
-# --- Render/webhook helpers ---
-RENDER_HOST = os.environ.get("RENDER_EXTERNAL_HOSTNAME", "")
-WEBHOOK_BASE_URL = (os.environ.get("WEBHOOK_BASE_URL", "") or "").rstrip("/")
-if not WEBHOOK_BASE_URL and RENDER_HOST:
-    # Build it automatically on Render if not explicitly set
-    WEBHOOK_BASE_URL = f"https://{RENDER_HOST}"
 
-# Define the port used by Render so your webhook branch works
-render_port = int(os.environ.get("PORT", "8080"))
+# If NOT forcing polling, you may still use webhook explicitly by setting WEBHOOK_BASE_URL.
+if FORCE_POLLING:
+    WEBHOOK_BASE_URL = ""   # ensure polling
 
 
 # ========================
@@ -74,6 +73,7 @@ render_port = int(os.environ.get("PORT", "8080"))
 Base = declarative_base()
 engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
+Base.metadata.create_all(engine)
 
 class UserAccount(Base):
     __tablename__ = "user_accounts"
@@ -1370,18 +1370,36 @@ def main() -> None:
 
     loop = asyncio.get_event_loop()
 
-   if WEBHOOK_BASE_URL:
-    # --- Webhook mode (only if you really want to use it) ---
-    app_bot.run_webhook(
-        listen="0.0.0.0",
-        port=render_port,
-        url_path=TGBOTTOKEN,
-        webhook_url=f"{WEBHOOK_BASE_URL}/{TGBOTTOKEN}"
-    )
-else:
-    # --- Polling mode (safe, avoids flood control) ---
-    app_bot.run_polling(drop_pending_updates=True)
+    if WEBHOOK_BASE_URL:
+        # Webhook mode
+        webhook_url = f"{WEBHOOK_BASE_URL}/{TGBOTTOKEN}"
+        logger.info("🔗 Using webhook: %s", webhook_url)
+        try:
+            loop.run_until_complete(app_bot.bot.set_webhook(
+                url=webhook_url,
+                secret_token=WEBHOOK_SECRET or None
+            ))
+        except Exception as e:
+            logger.exception("Failed to set webhook: %s", e)
 
+        app_bot.run_webhook(
+            listen="0.0.0.0",
+            port=render_port,
+            url_path=TGBOTTOKEN,
+            webhook_url=webhook_url,
+            secret_token=WEBHOOK_SECRET or None,
+            drop_pending_updates=True,
+        )
+    else:
+        # Polling mode
+        try:
+            loop.run_until_complete(app_bot.bot.delete_webhook(drop_pending_updates=True))
+            logger.info("Deleted existing webhook to allow polling.")
+        except Exception as e:
+            logger.warning("Could not delete webhook: %s", e)
+
+        logger.info("🔁 Starting polling mode")
+        app_bot.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     # Only run Flask health server when using polling.
