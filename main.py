@@ -1370,36 +1370,18 @@ def main() -> None:
 
     loop = asyncio.get_event_loop()
 
-    if WEBHOOK_BASE_URL:
-        # Webhook mode
-        webhook_url = f"{WEBHOOK_BASE_URL}/{TGBOTTOKEN}"
-        logger.info("🔗 Using webhook: %s", webhook_url)
-        try:
-            loop.run_until_complete(app_bot.bot.set_webhook(
-                url=webhook_url,
-                secret_token=WEBHOOK_SECRET or None
-            ))
-        except Exception as e:
-            logger.exception("Failed to set webhook: %s", e)
+   if WEBHOOK_BASE_URL:
+    # --- Webhook mode (only if you really want to use it) ---
+    app_bot.run_webhook(
+        listen="0.0.0.0",
+        port=render_port,
+        url_path=TGBOTTOKEN,
+        webhook_url=f"{WEBHOOK_BASE_URL}/{TGBOTTOKEN}"
+    )
+else:
+    # --- Polling mode (safe, avoids flood control) ---
+    app_bot.run_polling(drop_pending_updates=True)
 
-        app_bot.run_webhook(
-            listen="0.0.0.0",
-            port=render_port,
-            url_path=TGBOTTOKEN,
-            webhook_url=webhook_url,
-            secret_token=WEBHOOK_SECRET or None,
-            drop_pending_updates=True,
-        )
-    else:
-        # Polling mode
-        try:
-            loop.run_until_complete(app_bot.bot.delete_webhook(drop_pending_updates=True))
-            logger.info("Deleted existing webhook to allow polling.")
-        except Exception as e:
-            logger.warning("Could not delete webhook: %s", e)
-
-        logger.info("🔁 Starting polling mode")
-        app_bot.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     # Only run Flask health server when using polling.
