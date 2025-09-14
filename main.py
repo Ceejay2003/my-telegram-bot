@@ -71,7 +71,20 @@ if FORCE_POLLING:
 # Database
 # ========================
 Base = declarative_base()
-engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
+from sqlalchemy.engine.url import make_url
+
+url = make_url(DATABASE_URL)
+engine = create_engine(
+    url,
+    connect_args={
+        "sslmode": "require",
+        "options": "-c channel_binding=disable"
+    },
+    echo=False,
+    pool_pre_ping=True,
+    future=True
+)
+
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 Base.metadata.create_all(engine)
 
